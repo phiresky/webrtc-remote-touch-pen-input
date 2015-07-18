@@ -2,23 +2,45 @@ declare var QRCode: any;
 let server = `http://${location.host.split(':')[0]}:3001/`;
 
 module Pen {
+	export let info: info = <any>{};
+	export let penSize = 20;
+	// from https://developer.android.com/reference/android/view/MotionEvent.html
 	enum ToolType {
 		unknown, finger, stylus, mouse, eraser
 	}
+	enum Action {
+		Down = 0,
+		Up = 1,
+		Move = 2,
+		Cancel = 3,
+		Outside = 4,
+		Pointer_Down = 5,
+		Pointer_Up = 6,
+		Hover_Move = 7,
+		Scroll = 8,
+		Hover_Enter = 9,
+		Hover_Exit = 10,
+	}
 	interface info {
-		x: number, y: number, action: number, event: string, pressure: number, tooltype: ToolType
+		x: number, y: number, action: Action, event: string, pressure: number, tooltype: ToolType
 	}
 	let moveDiv = $("<div style='position:absolute; width:100px; height:100px; top:0; left:0; background:black; border-radius: 100%'>");
 	export function onConnectionInit() {
 		moveDiv.appendTo($("body"));
 	}
-	export function onMessage(msg:string) {
-		let data:info = JSON.parse(msg);
-		if (data.event == 'touch')
-			moveDiv.css({ top: data.y, left: data.x, background: data.tooltype == ToolType.finger ? 'red' : 'green', width: data.pressure * 200, height: data.pressure * 200 });
-		else
-			moveDiv.css({ top: data.y, left: data.x, background: 'black', width: 100, height: 100 });
-	
+	export function onMessage(msg: string) {
+		let data: info = JSON.parse(msg);
+		info = data;
+		document.dispatchEvent(new CustomEvent("androidpen", { detail: info }));
+		let color = data.tooltype == ToolType.finger ? 'red' : 'green';
+		let size = data.pressure * penSize;
+		if (data.event == 'touch') {
+		} else {
+			color = 'black';
+			size = penSize / 2;
+		}
+		moveDiv.css({ top: data.y - size / 2, left: data.x - size / 2, background: color, width: size, height: size });
+
 	}
 }
 module RTC {
@@ -26,6 +48,7 @@ module RTC {
 	export let channel: RTCDataChannel;
 	let cfg = { iceServers: [{ url: "stun:23.21.150.121" }] };
 	let con = { optional: [{ DtlsSrtpKeyAgreement: true }] };
+	let qrsize = 300;
 	function succ(...x: any[]) {
 		console.log("success", arguments, succ.caller);
 	}
@@ -47,7 +70,7 @@ module RTC {
 	}
 	export function pc1(server, onConnectionInit, onMessage) {
 		pc = new RTCPeerConnection(cfg, con);
-		channel = pc.createDataChannel('test', { reliable: true });
+		channel = pc.createDataChannel('test', { maxRetransmits:0/*reliable: true*/ });
 		channel.onopen = evt => {
 			console.log("chanel open");
 			channel.send('sending');
@@ -60,10 +83,12 @@ module RTC {
 				whenIceDone(() => {
 					$.post(server, serializeRTCDesc(pc.localDescription)).then(key => {
 						console.log("localhost:8000/?" + key);
-						new QRCode($("qrcode")[0], {
+						let qr = $("qrcode");
+						qr.css({position:'absolute', top:$(document).height()/2 - qrsize/2, left:$(document).width()/2-qrsize/2});
+						new QRCode(qr[0], {
 							text: server + "|" + key,
-							width: 300,
-							height: 300
+							width: qrsize,
+							height: qrsize
 						});
 						return $.get(server + key);
 					}).then(deserializeRTCDesc).then(answer => {

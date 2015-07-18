@@ -65,20 +65,16 @@ public class RtcConnectActivity extends Activity implements PeerConnection.Obser
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         IntentResult scanResult = IntentIntegrator.parseActivityResult(requestCode, resultCode, data);
         if (scanResult != null) {
-
             // handle scan result
             String content = scanResult.getContents();
             if (content == null) {
-                Toast.makeText(this, "Problem to get the  contant Number", Toast.LENGTH_LONG).show();
-
-            }else {
-                String[] parts = content.split("\\|",2);
+                Toast.makeText(this, "Problem getting scan result", Toast.LENGTH_LONG).show();
+            } else {
+                String[] parts = content.split("\\|", 2);
                 beginWebrtc(parts[0], parts[1]);
             }
-
-        }
-        else{
-            Toast.makeText(this, "Problem to secan the barcode.", Toast.LENGTH_LONG).show();
+        } else {
+            Toast.makeText(this, "Problem scanning qr code", Toast.LENGTH_LONG).show();
         }
     }
 
@@ -188,7 +184,7 @@ public class RtcConnectActivity extends Activity implements PeerConnection.Obser
         post(server + key, serializeRTCDesc(pc.getLocalDescription()), new Callback() {
             @Override
             public void callback(String data) {
-                System.out.println("out:"+data);
+                System.out.println("out:" + data);
             }
         });
     }
@@ -210,7 +206,7 @@ public class RtcConnectActivity extends Activity implements PeerConnection.Obser
                     rd.close();
                     c.callback(result);
                 } catch (MalformedURLException e) {
-                   handleError(e);
+                    handleError(e);
                 } catch (IOException e) {
                     handleError(e);
                 }
