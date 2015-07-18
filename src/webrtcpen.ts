@@ -1,6 +1,3 @@
-declare var QRCode: any;
-let server = `http://${location.host.split(':')[0]}:3001/`;
-
 if (navigator.mozGetUserMedia) {
 	RTCPeerConnection = mozRTCPeerConnection;
 	RTCSessionDescription = mozRTCSessionDescription;
@@ -9,9 +6,10 @@ if (navigator.mozGetUserMedia) {
 	RTCPeerConnection = webkitRTCPeerConnection;
 }
 
-module Pen {
-	export let info: info = <any>{};
+module WebRTCPen {
+	export let info: PenInformation = <any>{};
 	export let penSize = 20;
+	let config: Configuration;
 	// from https://developer.android.com/reference/android/view/MotionEvent.html
 	enum ToolType {
 		unknown, finger, stylus, mouse, eraser
@@ -29,39 +27,65 @@ module Pen {
 		Hover_Enter = 9,
 		Hover_Exit = 10,
 	}
-	interface info {
+	interface PenInformation {
 		x: number, y: number, action: Action, event: string, pressure: number, tooltype: ToolType
 	}
-	let moveDiv = $("<div style='position:absolute; width:100px; height:100px; top:0; left:0; background:black; border-radius: 100%'>");
-	export function onConnectionInit() {
+	interface Configuration {
+		server: string; // the nodejs server that handles the sessions
+		emulateMouse?: boolean;
+	}
+	let moveDiv = $("<div>").css({position:'absolute', borderRadius: '100%', display:'none'});
+	function onConnectionInit() {
 		moveDiv.appendTo($("body"));
 	}
-	export function onMessage(msg: string) {
-		let data: info = JSON.parse(msg);
-		info = data;
-		document.dispatchEvent(new CustomEvent("androidpen", { detail: info }));
-		let color = data.tooltype == ToolType.finger ? 'red' : 'green';
-		let size = data.pressure * penSize;
-		if (data.event == 'touch') {
+	function onMessage(msg: string) {
+		info = JSON.parse(msg);
+		document.dispatchEvent(new CustomEvent("webrtcpen", { detail: info }));
+		if(config.emulateMouse) emulateMouse(info);
+		let color = info.tooltype == ToolType.finger ? 'red' : 'green';
+		let size = info.pressure * penSize;
+		if (info.event == 'touch') {
 		} else {
 			color = 'black';
 			size = penSize / 2;
 		}
-		moveDiv.css({ top: data.y - size / 2, left: data.x - size / 2, background: color, width: size, height: size });
-
+		moveDiv.css({
+			display: info.action == Action.Hover_Exit || info.action == Action.Up ? 'none':'inherit',
+			top: info.y - size / 2, left: info.x - size / 2, 
+			background: color, width: size, height: size
+		});
+	}
+	export function initialize(_config: Configuration) {
+		config = _config;
+		RTC.pc1(config.server, onConnectionInit.bind(WebRTCPen), onMessage.bind(WebRTCPen));
+	}
+	function emulateMouse(info: PenInformation) {
+		var type = ["mousedown", "mouseup", "mousemove", "mouseup", "mouseup", , , "mousemove", , , ][info.action];
+		if (type) {
+			(document.elementFromPoint(info.x, info.y) || document).dispatchEvent(new MouseEvent(type, {
+				screenX: window.screenX + info.x,
+				screenY: window.screenY + info.y,
+				clientX: info.x,
+				clientY: info.y,
+				bubbles: true,
+				cancelable: true,
+				view: window
+			}));
+		}
 	}
 }
-module RTC {
+module WebRTCPen.RTC {
 	export let pc: RTCPeerConnection;
 	export let channel: RTCDataChannel;
-	let cfg = { iceServers: [{ url: "stun:23.21.150.121" }] };
+	declare var QRCode: any;
+	let cfg = { iceServers: [{ url: "stun:23.21.150.121" }, { url: "stun:stun.l.google.com:19302" }] };
 	let con = { optional: [{ DtlsSrtpKeyAgreement: true }] };
 	let qrsize = 300;
 	function succ(...x: any[]) {
 		console.log("success", arguments, succ.caller);
 	}
 	function fail(e?, m?) {
-		$(".container").append($("<div class='alert alert-danger'>").text("error: " + m + ":" + e.status));
+		$(".container,body").eq(0).append($("<div class='alert alert-danger'>").text("error: " + m + ":" + e.status));
 		console.error("failure", arguments, succ.caller);
 	}
 	//pc.onicecandidate = ev => !ev.candidate || pc.addIceCandidate(ev.candidate, succ, fail);
@@ -89,10 +113,10 @@ module RTC {
 			pc.setLocalDescription(offer, () => {
 				pc.oniceconnectionstatechange = e => console.log('cosc', pc.iceConnectionState);
 				whenIceDone(() => {
+					let qr = $("<div>");
 					$.post(server, serializeRTCDesc(pc.localDescription)).then(key => {
-						console.log("localhost:8000/?" + key);
-						let qr = $("qrcode");
-						qr.css({ position: 'absolute', top: $(document).height() / 2 - qrsize / 2, left: $(document).width() / 2 - qrsize / 2 });
+						qr.appendTo("body")
+							.css({ position: 'absolute', top: $(document).height() / 2 - qrsize / 2, left: $(document).width() / 2 - qrsize / 2 });
 						new QRCode(qr[0], {
 							text: server + "|" + key,
 							width: qrsize,
@@ -100,7 +124,7 @@ module RTC {
 						});
 						return $.get(server + key);
 					}).then(deserializeRTCDesc).then(answer => {
-						$("qrcode").remove();
+						qr.remove();
 						pc.setRemoteDescription(answer, succ, fail);
 					}).fail(fail);
 				});
@@ -122,8 +146,4 @@ module RTC {
 			}, fail);
 		}).fail(fail);
 	}
-
 }
-
-if (location.search) RTC.pc2(server, location.search.substr(1));
-else RTC.pc1(server, Pen.onConnectionInit.bind(Pen), Pen.onMessage.bind(Pen));

@@ -6,22 +6,10 @@
 <script src="lib/qrcode.min.js"></script>
 <script src="lib/paper.js"></script>
 <script>
-	$(document).ready(function() {
-		var canvas = $("canvas")[0];
-		document.addEventListener("androidpen", function(evt) {
-			var info = evt.detail;
-			var type = ["mousedown", "mouseup", "mousemove", "mouseup", "mouseup", ,,"mousemove",,,][info.action];
-			if(type) {
-				canvas.dispatchEvent(new MouseEvent(type, {
-					screenX:info.x,
-					screenY:info.y,
-					clientX:info.x,
-					clientY:info.y,
-					bubbles:true,
-					cancelable:true,
-					view:window
-				}));
-			}
+	$(function() {
+		WebRTCPen.initialize({
+			server: "http://"+location.host.split(':')[0]+":3001/",
+			emulateMouse: true
 		});
 	});
 	function downloadSVG() {
@@ -186,7 +174,7 @@
 	            }
 	            
 	            if(opt.tool_name == "brush"){
-	                var pressure = Pen.info.pressure || 1.0;
+	                var pressure = WebRTCPen.info.pressure || 1.0;
 
 	                var v = (event.point - myLastPoint) / 2;
 	                var vp = v.normalize() * pressure * opt.pressure_factor;
@@ -311,7 +299,6 @@
 	}
 </style>
 </head>
-<qrcode></qrcode>
 <div style="z-index:0; top:40px; position:absolute;margin-left:20px" class="small">paper.js with tablet pressure + svg data generation
 	<br>
 </div>
@@ -352,4 +339,4 @@
 	<a href="#" onclick="downloadSVG(); return false">generate svg</a>]
 	<span class="small">&lt;- toggles visible of the textarea</span>/ [
 	<a href="#" onclick="clearCanvas('canvas'); return false">clear canvas</a>]</div>
-<script src="bin/main.js"></script>
+<script src="bin/webrtcpen.js"></script>

@@ -5,7 +5,9 @@
 <script src="lib/jquery.min.js"></script>
 <script src="lib/qrcode.min.js"></script>
 <link href="lib/bootstrap.min.css" rel="stylesheet">
-<div class="container">
-	<qrcode></qrcode>
-</div>
-<script src="bin/main.js"></script>
+<script src="bin/webrtcpen.js"></script>
+<script>
+	WebRTCPen.initialize({
+		server: "http://"+location.host.split(':')[0]+":3001/"
+	});
+</script>
