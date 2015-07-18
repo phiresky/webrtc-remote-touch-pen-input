@@ -21,7 +21,7 @@ let sessionQueue = [];
 
 let abort = res => { res.statusCode = 404; res.end("not found"); }
 let removeOldSessions = () => { while (sessionQueue.length > 20) delete sessions[sessionQueue.shift()] }
-}
+
 function postRequest(body, key, res) {
 	if (key.length == 0) {
 		do key = crypto.pseudoRandomBytes(12).toString('base64');
@@ -49,7 +49,6 @@ function getRequest(key, res) {
 }
 
 http.createServer((req, res) => {
-	console.log(sessionQueue);
 	res.setHeader("Access-Control-Allow-Origin", "*");
 	let key = url.parse(req.url).pathname.substr(1);
 	if (req.method == 'POST') {

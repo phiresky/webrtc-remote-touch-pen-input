@@ -1,6 +1,14 @@
 declare var QRCode: any;
 let server = `http://${location.host.split(':')[0]}:3001/`;
 
+if (navigator.mozGetUserMedia) {
+	RTCPeerConnection = mozRTCPeerConnection;
+	RTCSessionDescription = mozRTCSessionDescription;
+	RTCIceCandidate = mozRTCIceCandidate;
+} else if (navigator.webkitGetUserMedia) {
+	RTCPeerConnection = webkitRTCPeerConnection;
+}
+
 module Pen {
 	export let info: info = <any>{};
 	export let penSize = 20;
@@ -70,7 +78,7 @@ module RTC {
 	}
 	export function pc1(server, onConnectionInit, onMessage) {
 		pc = new RTCPeerConnection(cfg, con);
-		channel = pc.createDataChannel('test', { maxRetransmits:0/*reliable: true*/ });
+		channel = pc.createDataChannel('test', { maxRetransmits: 0/*reliable: true*/ });
 		channel.onopen = evt => {
 			console.log("chanel open");
 			channel.send('sending');
@@ -84,7 +92,7 @@ module RTC {
 					$.post(server, serializeRTCDesc(pc.localDescription)).then(key => {
 						console.log("localhost:8000/?" + key);
 						let qr = $("qrcode");
-						qr.css({position:'absolute', top:$(document).height()/2 - qrsize/2, left:$(document).width()/2-qrsize/2});
+						qr.css({ position: 'absolute', top: $(document).height() / 2 - qrsize / 2, left: $(document).width() / 2 - qrsize / 2 });
 						new QRCode(qr[0], {
 							text: server + "|" + key,
 							width: qrsize,

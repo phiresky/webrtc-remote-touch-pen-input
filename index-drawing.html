@@ -2,40 +2,35 @@
 <meta charset="utf-8">
 <title>WebRTC p2p data</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<script src="lib/adapter.js"></script>
-<script src="lib/jquery-2.0.0.js"></script>
-<script src="lib/bootstrap.min.js"></script>
+<script src="lib/jquery.min.js"></script>
 <script src="lib/qrcode.min.js"></script>
-<!--<link href="lib/bootstrap.min.css" rel="stylesheet">-->
 <script src="lib/paper.js"></script>
 <script>
 	$(document).ready(function() {
-			var canvas = $("canvas")[0];
-			document.addEventListener("androidpen", function(evt) {
-				var info = evt.detail;
-				var type = ["mousedown", "mouseup", "mousemove", "mouseup", "mouseup", ,,"mousemove",,,][info.action];
-				if(type) {
-					canvas.dispatchEvent(new MouseEvent(type, {
-						screenX:info.x,
-						screenY:info.y,
-						clientX:info.x,
-						clientY:info.y,
-						bubbles:true,
-						cancelable:true,
-						view:window
-					}));
-				}
-			});
+		var canvas = $("canvas")[0];
+		document.addEventListener("androidpen", function(evt) {
+			var info = evt.detail;
+			var type = ["mousedown", "mouseup", "mousemove", "mouseup", "mouseup", ,,"mousemove",,,][info.action];
+			if(type) {
+				canvas.dispatchEvent(new MouseEvent(type, {
+					screenX:info.x,
+					screenY:info.y,
+					clientX:info.x,
+					clientY:info.y,
+					bubbles:true,
+					cancelable:true,
+					view:window
+				}));
+			}
 		});
-		function downloadSVG() {
-			var out = paper.project.exportSVG({asString:true});
-			var a = $("<a>")[0];
-			a.href = URL.createObjectURL(new Blob([out], {type: "text/calendar"}));
-			a.download = "Drawing "+new Date().toISOString().replace(/T/," ").replace(/:/g,'.').substr(0,19)+".svg";
-			a.click();
-		}
-</script>
-<script type="text/javascript">
+	});
+	function downloadSVG() {
+		var out = paper.project.exportSVG({asString:true});
+		var a = $("<a>")[0];
+		a.href = URL.createObjectURL(new Blob([out], {type: "text/calendar"}));
+		a.download = "Drawing "+new Date().toISOString().replace(/T/," ").replace(/:/g,'.').substr(0,19)+".svg";
+		a.click();
+	}
 	// adapted from https://github.com/shspage/paperjs-pressure-pdfout
 	var kUndoLimit = 200;
 	var undoRedoSystemArray = function( name ){
