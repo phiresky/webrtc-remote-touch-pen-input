@@ -1,0 +1,13 @@
+{
+	"compilerOptions": {
+		"out": "bin/main.js",
+		"sourceMap": true
+	},
+	"files":[
+		"lib/typings/jquery/jquery.d.ts",
+		"lib/typings/MediaStream.d.ts",
+		"lib/typings/RTCPeerConnection.d.ts",
+		"lib/typings/es6-promise/es6-promise.d.ts",
+		"src/main.ts"
+	]
+}
