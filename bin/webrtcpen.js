@@ -34,7 +34,7 @@ var WebRTCPen;
         Action[Action["Hover_Enter"] = 9] = "Hover_Enter";
         Action[Action["Hover_Exit"] = 10] = "Hover_Exit";
     })(Action || (Action = {}));
-    var moveDiv = $("<div>").css({ position: 'absolute', borderRadius: '100%', display: 'none' });
+    var moveDiv = $("<div>").css({ position: 'absolute', borderRadius: '100%', display: 'none', zIndex: 99 });
     function onConnectionInit() {
         moveDiv.appendTo($("body"));
     }
@@ -62,10 +62,12 @@ var WebRTCPen;
         WebRTCPen.RTC.pc1(config.server, onConnectionInit.bind(WebRTCPen), onMessage.bind(WebRTCPen));
     }
     WebRTCPen.initialize = initialize;
+    var lastEle = null;
     function emulateMouse(info) {
         var type = ["mousedown", "mouseup", "mousemove", "mouseup", "mouseup", , , "mousemove", , ,][info.action];
         if (type) {
-            (document.elementFromPoint(info.x, info.y) || document).dispatchEvent(new MouseEvent(type, {
+            var ele = (document.elementFromPoint(info.x, info.y) || document);
+            var evt = {
                 screenX: window.screenX + info.x,
                 screenY: window.screenY + info.y,
                 clientX: info.x,
@@ -73,7 +75,11 @@ var WebRTCPen;
                 bubbles: true,
                 cancelable: true,
                 view: window
-            }));
+            };
+            ele.dispatchEvent(new MouseEvent(type, evt));
+            if (type === 'mouseup' && ele === lastEle)
+                ele.dispatchEvent(new MouseEvent('click', evt));
+            lastEle = ele;
         }
     }
 })(WebRTCPen || (WebRTCPen = {}));

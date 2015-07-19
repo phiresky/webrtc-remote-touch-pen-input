@@ -34,7 +34,7 @@ module WebRTCPen {
 		server: string; // the nodejs server that handles the sessions
 		emulateMouse?: boolean;
 	}
-	let moveDiv = $("<div>").css({position:'absolute', borderRadius: '100%', display:'none'});
+	let moveDiv = $("<div>").css({position:'absolute', borderRadius: '100%', display:'none', zIndex:99});
 	function onConnectionInit() {
 		moveDiv.appendTo($("body"));
 	}
@@ -59,10 +59,12 @@ module WebRTCPen {
 		config = _config;
 		RTC.pc1(config.server, onConnectionInit.bind(WebRTCPen), onMessage.bind(WebRTCPen));
 	}
+	let lastEle = null;
 	function emulateMouse(info: PenInformation) {
 		var type = ["mousedown", "mouseup", "mousemove", "mouseup", "mouseup", , , "mousemove", , , ][info.action];
 		if (type) {
-			(document.elementFromPoint(info.x, info.y) || document).dispatchEvent(new MouseEvent(type, {
+			let ele = (document.elementFromPoint(info.x, info.y) || document);
+			let evt = {
 				screenX: window.screenX + info.x,
 				screenY: window.screenY + info.y,
 				clientX: info.x,
@@ -70,7 +72,11 @@ module WebRTCPen {
 				bubbles: true,
 				cancelable: true,
 				view: window
-			}));
+			};
+			ele.dispatchEvent(new MouseEvent(type, evt));
+			if(type === 'mouseup' && ele === lastEle)
+				ele.dispatchEvent(new MouseEvent('click', evt));
+			lastEle = ele;
 		}
 	}
 }
