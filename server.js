@@ -1,14 +1,6 @@
 #!/usr/bin/node --harmony
 "use strict";
 
-/**
- * step 1: PC sends `POST /` with the WebRTC request json as the data, gets the session key in return
- * step 2: PC sends `GET /:sessionkey`, server waits with response until step 3 and 4 are done
- * step 3: Phone retrieves session key from PC, sends `GET /:sessionkey`, gets the request json
- * step 4: Phone sends `POST /:sessionkey` with the WebRTC answer json
- * step 5: PC request from step 2 is answered with the answer json
- */
-
 let fs = require('fs'),
 	http = require('http'),
 	crypto = require('crypto'),
