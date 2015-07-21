@@ -3,6 +3,7 @@ package de.phiresky.androidrtc;
 import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
+import android.os.Looper;
 import android.view.Window;
 import android.view.WindowManager.LayoutParams;
 import android.widget.Toast;
@@ -36,6 +37,7 @@ public class RtcConnectActivity extends Activity implements PeerConnection.Obser
     private PeerConnection pc;
     private MediaConstraints pcConstraints;
     private String targetUrl;
+    private int step;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -45,6 +47,12 @@ public class RtcConnectActivity extends Activity implements PeerConnection.Obser
         pcConstraints = new MediaConstraints();
         pcConstraints.optional.add(new MediaConstraints.KeyValuePair("DtlsSrtpKeyAgreement", "true"));
         PeerConnectionFactory.initializeAndroidGlobals(this, true, false, false, null);
+        scanBarcode();
+    }
+
+    private void scanBarcode() {
+        step = 0;
+        if (pc != null) pc.dispose();
         pc = new PeerConnectionFactory().createPeerConnection(iceServers, pcConstraints, this);
         IntentIntegrator integrator = new IntentIntegrator(this);
         integrator.setDesiredBarcodeFormats(IntentIntegrator.QR_CODE_TYPES);
@@ -53,6 +61,11 @@ public class RtcConnectActivity extends Activity implements PeerConnection.Obser
     }
 
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if(requestCode == 123) {
+            // return from PenSyncActivity
+            scanBarcode();
+            return;
+        }
         IntentResult scanResult = IntentIntegrator.parseActivityResult(requestCode, resultCode, data);
         if (scanResult != null) {
             // handle scan result
@@ -70,22 +83,27 @@ public class RtcConnectActivity extends Activity implements PeerConnection.Obser
     private SdpObserver test = new SdpObserver() {
         @Override
         public void onSetSuccess() {
-            // step 2
+            System.out.println("setSuccess ");
+            if (step >= 2) return;
+            step = 2;
             pc.createAnswer(test, pcConstraints);
         }
 
         @Override
         public void onCreateSuccess(SessionDescription answer) {
-            // step 3
-            pc.setLocalDescription(null, answer);
+            System.out.println("createSuccess" + answer);
+            step = 3;
+            pc.setLocalDescription(test, answer);
         }
 
         @Override
         public void onCreateFailure(String s) {
+            System.out.println("createFailure " + s);
         }
 
         @Override
         public void onSetFailure(String s) {
+            System.out.println("setFailure " + s);
         }
     };
 
@@ -94,7 +112,8 @@ public class RtcConnectActivity extends Activity implements PeerConnection.Obser
         get(targetUrl, new Consumer<String>() {
             @Override
             public void consume(final String offer) {
-                // step 1
+                step = 1;
+                System.out.println("got offer "+offer);
                 pc.setRemoteDescription(test, deserializeRTCDesc(offer));
             }
         });
@@ -135,11 +154,27 @@ public class RtcConnectActivity extends Activity implements PeerConnection.Obser
 
     @Override
     public void onIceConnectionChange(PeerConnection.IceConnectionState iceConnectionState) {
+        if (iceConnectionState == PeerConnection.IceConnectionState.DISCONNECTED)
+            disconnected();
+    }
+
+    private void disconnected() {
+        Looper.prepare();
+        Intent i = new Intent(this, PenSyncActivity.class);
+        i.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        i.setAction("close");
+        toast("Connection closed");
+        startActivity(i);
     }
 
     @Override
     public void onIceGatheringChange(PeerConnection.IceGatheringState iceGatheringState) {
+        System.out.println(iceGatheringState);
         if (iceGatheringState != PeerConnection.IceGatheringState.COMPLETE) return;
+        if(pc.getLocalDescription() == null) {
+            System.out.println("NULL!");
+            return;
+        }
         post(targetUrl, serializeRTCDesc(pc.getLocalDescription()), new Consumer<String>() {
             @Override
             public void consume(String data) {
@@ -152,14 +187,14 @@ public class RtcConnectActivity extends Activity implements PeerConnection.Obser
         urlRequest(urlStr, null, callback);
     }
 
-    private void post(String urlStr, String postData,  Consumer<String>  callback) {
+    private void post(String urlStr, String postData, Consumer<String> callback) {
         urlRequest(urlStr, postData, callback);
     }
 
-    private void urlRequest(final String urlStr, final String postData, final Consumer<String>  callback) {
+    private void urlRequest(final String urlStr, final String postData, final Consumer<String> callback) {
         new Thread(new Runnable() {
             public void run() {
-                System.out.println("POST:" + urlStr);
+                System.out.println((postData == null?"GET:":"POST:") + urlStr);
                 URL url = null;
                 try {
                     url = new URL(urlStr);
@@ -183,13 +218,16 @@ public class RtcConnectActivity extends Activity implements PeerConnection.Obser
         }).start();
     }
 
-    void handleError(final Exception e) {
+    void toast(final String text) {
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                Toast.makeText(RtcConnectActivity.this.getApplicationContext(), e.getMessage(), Toast.LENGTH_LONG).show();
+                Toast.makeText(RtcConnectActivity.this.getApplicationContext(), text, Toast.LENGTH_LONG).show();
             }
         });
+    }
+    void handleError(final Exception e) {
+        toast(e.getMessage());
         e.printStackTrace();
     }
 
@@ -205,12 +243,16 @@ public class RtcConnectActivity extends Activity implements PeerConnection.Obser
     public void onRemoveStream(MediaStream mediaStream) {
     }
 
+    private void debugLog() {
+        System.out.println("DBG: " + Thread.currentThread().getStackTrace()[2].getMethodName());
+    }
+
     @Override
     public void onDataChannel(DataChannel dataChannel) {
         dataChannel.registerObserver(new DataChannel.Observer() {
             @Override
             public void onStateChange() {
-
+                System.out.println("onStageChange");
             }
 
             @Override
@@ -221,8 +263,9 @@ public class RtcConnectActivity extends Activity implements PeerConnection.Obser
             }
         });
         PenSyncActivity.channel = dataChannel;
-        startActivity(new Intent(this, PenSyncActivity.class));
-        finish();
+        Intent i = new Intent(this, PenSyncActivity.class);
+        i.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        startActivityForResult(i, 123);
     }
 
     @Override

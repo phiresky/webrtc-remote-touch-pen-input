@@ -59,6 +59,8 @@ var WebRTCPen;
     }
     function initialize(_config) {
         config = _config;
+        if (config.server[config.server.length - 1] != '/')
+            config.server += '/';
         $(function () {
             return WebRTCPen.RTC.pc1(config.server, onConnectionInit.bind(WebRTCPen), onMessage.bind(WebRTCPen));
         });
@@ -142,7 +144,7 @@ var WebRTCPen;
                         $.post(server, serializeRTCDesc(RTC.pc.localDescription)).then(function (key) {
                             qr.removeAttr('style').css({ position: 'absolute', top: $(document).height() / 2 - qrsize / 2, left: $(document).width() / 2 - qrsize / 2 });
                             new QRCode(qr[0], {
-                                text: server + "|" + key,
+                                text: server + key,
                                 width: qrsize,
                                 height: qrsize
                             });

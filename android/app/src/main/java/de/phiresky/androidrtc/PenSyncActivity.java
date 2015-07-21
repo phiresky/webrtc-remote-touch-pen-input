@@ -1,6 +1,7 @@
 package de.phiresky.androidrtc;
 
 import android.app.Activity;
+import android.content.Intent;
 import android.os.Bundle;
 import android.view.MotionEvent;
 import android.view.View;
@@ -83,5 +84,13 @@ public class PenSyncActivity extends Activity implements View.OnTouchListener, V
             e.printStackTrace();
         }
         return null;
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        if(intent.getAction().equals("close")) {
+            setResult(Activity.RESULT_OK);
+            finish();
+        }
     }
 }

@@ -57,6 +57,7 @@ module WebRTCPen {
 	}
 	export function initialize(_config: Configuration) {
 		config = _config;
+		if(config.server[config.server.length-1] != '/') config.server += '/';
 		$(() => // wait for document ready
 			RTC.pc1(config.server, onConnectionInit.bind(WebRTCPen), onMessage.bind(WebRTCPen))
 			);
@@ -132,7 +133,7 @@ module WebRTCPen.RTC {
 					$.post(server, serializeRTCDesc(pc.localDescription)).then(key => {
 						qr.removeAttr('style').css({ position: 'absolute', top: $(document).height() / 2 - qrsize / 2, left: $(document).width() / 2 - qrsize / 2 });
 						new QRCode(qr[0], {
-							text: server + "|" + key,
+							text: server + key,
 							width: qrsize,
 							height: qrsize
 						});
