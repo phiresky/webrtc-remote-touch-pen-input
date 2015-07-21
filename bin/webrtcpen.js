@@ -59,7 +59,9 @@ var WebRTCPen;
     }
     function initialize(_config) {
         config = _config;
-        WebRTCPen.RTC.pc1(config.server, onConnectionInit.bind(WebRTCPen), onMessage.bind(WebRTCPen));
+        $(function () {
+            return WebRTCPen.RTC.pc1(config.server, onConnectionInit.bind(WebRTCPen), onMessage.bind(WebRTCPen));
+        });
     }
     WebRTCPen.initialize = initialize;
     var lastEle = null;
@@ -117,7 +119,14 @@ var WebRTCPen;
             RTC.pc.onicecandidate = function (ev) { if (ev.candidate == null)
                 callback(); };
         }
+        function addSpinner() {
+            $("<style>@keyframes rotateplane{0%{transform:perspective(120px) rotateX(0) rotateY(0)}50%{transform:perspective(120px) rotateX(-180.1deg) rotateY(0)}100%{transform:perspective(120px) rotateX(-180deg) rotateY(-179.9deg)}}</style>").appendTo("head");
+            var qr = $("<div style='width:100px;height:100px;background-color:#333;animation:rotateplane 1.2s infinite ease-in-out'>");
+            qr.appendTo("body").css({ position: 'absolute', top: $(document).height() / 2 - 50, left: $(document).width() / 2 - 50 });
+            return qr;
+        }
         function pc1(server, onConnectionInit, onMessage) {
+            var qr = addSpinner();
             RTC.pc = new RTCPeerConnection(cfg, con);
             RTC.channel = RTC.pc.createDataChannel('test', { maxRetransmits: 0 /*reliable: true*/ });
             RTC.channel.onopen = function (evt) {
@@ -130,10 +139,8 @@ var WebRTCPen;
                 RTC.pc.setLocalDescription(offer, function () {
                     RTC.pc.oniceconnectionstatechange = function (e) { return console.log('cosc', RTC.pc.iceConnectionState); };
                     whenIceDone(function () {
-                        var qr = $("<div>");
                         $.post(server, serializeRTCDesc(RTC.pc.localDescription)).then(function (key) {
-                            qr.appendTo("body")
-                                .css({ position: 'absolute', top: $(document).height() / 2 - qrsize / 2, left: $(document).width() / 2 - qrsize / 2 });
+                            qr.removeAttr('style').css({ position: 'absolute', top: $(document).height() / 2 - qrsize / 2, left: $(document).width() / 2 - qrsize / 2 });
                             new QRCode(qr[0], {
                                 text: server + "|" + key,
                                 width: qrsize,

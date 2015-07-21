@@ -57,7 +57,9 @@ module WebRTCPen {
 	}
 	export function initialize(_config: Configuration) {
 		config = _config;
-		RTC.pc1(config.server, onConnectionInit.bind(WebRTCPen), onMessage.bind(WebRTCPen));
+		$(() => // wait for document ready
+			RTC.pc1(config.server, onConnectionInit.bind(WebRTCPen), onMessage.bind(WebRTCPen))
+		);
 	}
 	let lastEle = null;
 	function emulateMouse(info: PenInformation) {
@@ -106,7 +108,15 @@ module WebRTCPen.RTC {
 		// todo: this a hack?
 		pc.onicecandidate = ev => { if (ev.candidate == null) callback(); }
 	}
+	function addSpinner() {
+		$("<style>@keyframes rotateplane{0%{transform:perspective(120px) rotateX(0) rotateY(0)}50%{transform:perspective(120px) rotateX(-180.1deg) rotateY(0)}100%{transform:perspective(120px) rotateX(-180deg) rotateY(-179.9deg)}}</style>").appendTo("head");
+		let qr = $("<div style='width:100px;height:100px;background-color:#333;animation:rotateplane 1.2s infinite ease-in-out'>");
+		qr.appendTo("body").css({ position: 'absolute', top: $(document).height() / 2 - 50, left: $(document).width() / 2 - 50 });
+		return qr;
+	}
+
 	export function pc1(server, onConnectionInit, onMessage) {
+		let qr = addSpinner();
 		pc = new RTCPeerConnection(cfg, con);
 		channel = pc.createDataChannel('test', { maxRetransmits: 0/*reliable: true*/ });
 		channel.onopen = evt => {
@@ -119,10 +129,8 @@ module WebRTCPen.RTC {
 			pc.setLocalDescription(offer, () => {
 				pc.oniceconnectionstatechange = e => console.log('cosc', pc.iceConnectionState);
 				whenIceDone(() => {
-					let qr = $("<div>");
 					$.post(server, serializeRTCDesc(pc.localDescription)).then(key => {
-						qr.appendTo("body")
-							.css({ position: 'absolute', top: $(document).height() / 2 - qrsize / 2, left: $(document).width() / 2 - qrsize / 2 });
+						qr.removeAttr('style').css({ position: 'absolute', top: $(document).height() / 2 - qrsize / 2, left: $(document).width() / 2 - qrsize / 2 });
 						new QRCode(qr[0], {
 							text: server + "|" + key,
 							width: qrsize,
