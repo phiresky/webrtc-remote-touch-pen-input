@@ -35,26 +35,16 @@ public class RtcConnectActivity extends Activity implements PeerConnection.Obser
     private LinkedList<PeerConnection.IceServer> iceServers = new LinkedList<>();
     private PeerConnection pc;
     private MediaConstraints pcConstraints;
-    private String server, key;
+    private String targetUrl;
 
-    //private PeerConnectionParameters pcParams = new PeerConnectionParameters(false, false, 0,0,0,0,null,false,0,null,false);
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        requestWindowFeature(Window.FEATURE_NO_TITLE);
-        getWindow().addFlags(
-                LayoutParams.FLAG_FULLSCREEN
-                        | LayoutParams.FLAG_KEEP_SCREEN_ON
-                        | LayoutParams.FLAG_DISMISS_KEYGUARD
-                        | LayoutParams.FLAG_SHOW_WHEN_LOCKED
-                        | LayoutParams.FLAG_TURN_SCREEN_ON);
-        setContentView(R.layout.main);
         iceServers.add(new PeerConnection.IceServer("stun:23.21.150.121"));
         iceServers.add(new PeerConnection.IceServer("stun:stun.l.google.com:19302"));
         pcConstraints = new MediaConstraints();
         pcConstraints.optional.add(new MediaConstraints.KeyValuePair("DtlsSrtpKeyAgreement", "true"));
-        PeerConnectionFactory.initializeAndroidGlobals(this, true, false,
-                false, null);
+        PeerConnectionFactory.initializeAndroidGlobals(this, true, false, false, null);
         pc = new PeerConnectionFactory().createPeerConnection(iceServers, pcConstraints, this);
         IntentIntegrator integrator = new IntentIntegrator(this);
         integrator.setDesiredBarcodeFormats(IntentIntegrator.QR_CODE_TYPES);
@@ -70,77 +60,48 @@ public class RtcConnectActivity extends Activity implements PeerConnection.Obser
             if (content == null) {
                 Toast.makeText(this, "Problem getting scan result", Toast.LENGTH_LONG).show();
             } else {
-                String[] parts = content.split("\\|", 2);
-                beginWebrtc(parts[0], parts[1]);
+                beginWebrtc(content);
             }
         } else {
             Toast.makeText(this, "Problem scanning qr code", Toast.LENGTH_LONG).show();
         }
     }
 
-    private void beginWebrtc(String server, String key) {
-        this.server = server;
-        this.key = key;
-        get(server + key, new Callback() {
+    private SdpObserver test = new SdpObserver() {
+        @Override
+        public void onSetSuccess() {
+            // step 2
+            pc.createAnswer(test, pcConstraints);
+        }
+
+        @Override
+        public void onCreateSuccess(SessionDescription answer) {
+            // step 3
+            pc.setLocalDescription(null, answer);
+        }
+
+        @Override
+        public void onCreateFailure(String s) {
+        }
+
+        @Override
+        public void onSetFailure(String s) {
+        }
+    };
+
+    private void beginWebrtc(String targetUrl) {
+        this.targetUrl = targetUrl;
+        get(targetUrl, new Consumer<String>() {
             @Override
-            public void callback(final String offer) {
-                pc.setRemoteDescription(new SdpObserver() {
-                    @Override
-                    public void onCreateSuccess(SessionDescription sessionDescription) {
-                    }
-
-                    @Override
-                    public void onSetSuccess() {
-                        pc.createAnswer(new SdpObserver() {
-                            @Override
-                            public void onCreateSuccess(SessionDescription answer) {
-                                pc.setLocalDescription(new SdpObserver() {
-                                    @Override
-                                    public void onCreateSuccess(SessionDescription sessionDescription) {
-                                    }
-
-                                    @Override
-                                    public void onSetSuccess() {
-                                    }
-
-                                    @Override
-                                    public void onCreateFailure(String s) {
-                                    }
-
-                                    @Override
-                                    public void onSetFailure(String s) {
-                                    }
-                                }, answer);
-                            }
-
-                            @Override
-                            public void onSetSuccess() {
-                            }
-
-                            @Override
-                            public void onCreateFailure(String s) {
-                            }
-
-                            @Override
-                            public void onSetFailure(String s) {
-                            }
-                        }, pcConstraints);
-                    }
-
-                    @Override
-                    public void onCreateFailure(String s) {
-                    }
-
-                    @Override
-                    public void onSetFailure(String s) {
-                    }
-                }, deserializeRTCDesc(offer));
+            public void consume(final String offer) {
+                // step 1
+                pc.setRemoteDescription(test, deserializeRTCDesc(offer));
             }
         });
     }
 
-    private interface Callback {
-        void callback(String data);
+    private interface Consumer<T> {
+        void consume(T data);
     }
 
     private SessionDescription deserializeRTCDesc(String data) {
@@ -152,8 +113,8 @@ public class RtcConnectActivity extends Activity implements PeerConnection.Obser
             );
         } catch (JSONException e) {
             handleError(e);
+            return null;
         }
-        return null;
     }
 
     private String serializeRTCDesc(SessionDescription sdp) {
@@ -164,49 +125,57 @@ public class RtcConnectActivity extends Activity implements PeerConnection.Obser
             return payload.toString();
         } catch (JSONException e) {
             handleError(e);
+            return null;
         }
-        return null;
     }
 
     @Override
     public void onSignalingChange(PeerConnection.SignalingState signalingState) {
-
     }
 
     @Override
     public void onIceConnectionChange(PeerConnection.IceConnectionState iceConnectionState) {
-
     }
 
     @Override
     public void onIceGatheringChange(PeerConnection.IceGatheringState iceGatheringState) {
         if (iceGatheringState != PeerConnection.IceGatheringState.COMPLETE) return;
-        post(server + key, serializeRTCDesc(pc.getLocalDescription()), new Callback() {
+        post(targetUrl, serializeRTCDesc(pc.getLocalDescription()), new Consumer<String>() {
             @Override
-            public void callback(String data) {
+            public void consume(String data) {
                 System.out.println("out:" + data);
             }
         });
     }
 
-    private void get(final String urlStr, final Callback c) {
+    private void get(String urlStr, Consumer<String> callback) {
+        urlRequest(urlStr, null, callback);
+    }
+
+    private void post(String urlStr, String postData,  Consumer<String>  callback) {
+        urlRequest(urlStr, postData, callback);
+    }
+
+    private void urlRequest(final String urlStr, final String postData, final Consumer<String>  callback) {
         new Thread(new Runnable() {
             public void run() {
-                System.out.println("GET:" + urlStr);
+                System.out.println("POST:" + urlStr);
                 URL url = null;
                 try {
                     url = new URL(urlStr);
                     HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-                    conn.setRequestMethod("GET");
+                    if (postData != null) {
+                        conn.setRequestMethod("POST");
+                        conn.setDoOutput(true);
+                        DataOutputStream out = new DataOutputStream(conn.getOutputStream());
+                        out.writeBytes(postData);
+                        out.close();
+                    }
                     String result = "", line;
                     BufferedReader rd = new BufferedReader(new InputStreamReader(conn.getInputStream()));
-                    while ((line = rd.readLine()) != null) {
-                        result += line;
-                    }
+                    while ((line = rd.readLine()) != null) result += line;
                     rd.close();
-                    c.callback(result);
-                } catch (MalformedURLException e) {
-                    handleError(e);
+                    callback.consume(result);
                 } catch (IOException e) {
                     handleError(e);
                 }
@@ -224,49 +193,16 @@ public class RtcConnectActivity extends Activity implements PeerConnection.Obser
         e.printStackTrace();
     }
 
-    private void post(final String urlStr, final String data, final Callback c) {
-        new Thread(new Runnable() {
-            public void run() {
-                System.out.println("POST:" + urlStr);
-                URL url = null;
-                try {
-                    url = new URL(urlStr);
-                    HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-                    conn.setRequestMethod("POST");
-                    conn.setDoOutput(true);
-                    DataOutputStream out = new DataOutputStream(conn.getOutputStream());
-                    out.writeBytes(data);
-                    out.close();
-                    String result = "", line;
-                    BufferedReader rd = new BufferedReader(new InputStreamReader(conn.getInputStream()));
-                    while ((line = rd.readLine()) != null) {
-                        result += line;
-                    }
-                    rd.close();
-                    c.callback(result);
-                } catch (MalformedURLException e) {
-                    handleError(e);
-
-                } catch (IOException e) {
-                    handleError(e);
-                }
-            }
-        }).start();
-    }
-
     @Override
     public void onIceCandidate(IceCandidate iceCandidate) {
-
     }
 
     @Override
     public void onAddStream(MediaStream mediaStream) {
-
     }
 
     @Override
     public void onRemoveStream(MediaStream mediaStream) {
-
     }
 
     @Override
@@ -291,6 +227,5 @@ public class RtcConnectActivity extends Activity implements PeerConnection.Obser
 
     @Override
     public void onRenegotiationNeeded() {
-
     }
 }
