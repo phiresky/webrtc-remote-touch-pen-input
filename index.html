@@ -5,6 +5,7 @@
 <script src="lib/jquery.min.js"></script>
 <script src="lib/qrcode.min.js"></script>
 <script src="lib/paper.js"></script>
+<script src="bin/webrtcpen.js"></script>
 <script>
 	$(function() {
 		WebRTCPen.initialize({
@@ -14,62 +15,40 @@
 		PenDrawing.initialize("canvas");
 	});
 </script>
-<style type="text/css">
-	body { font-size: 100% }
-	.small{ color:gray; font-size:80%; }
-	input.colorsample{
-		width:50px;
-		height:30px;
-		font-family:Arial,Helvetica,sans-serif;
-		font-size:10px;
-		text-align:center;
-	}
-	ul.layers { margin-left:0px;padding-left:20px; }
-	li { margin-left:0px;padding-left:0px; }
+<style>
+	.small{ color:gray; }
 	canvas {
-		width:100%;
-		height:100%;
+		position: absolute;
+		top:0; left:0;
+		width:100%; height:100%;
+		z-index: -1;
 	}
+	.abs { position: absolute; left: 20px; }
 </style>
-</head>
-<div style="z-index:0; top:40px; position:absolute;margin-left:20px" class="small">paper.js with tablet pressure + svg data generation
-	<br>
+<canvas id="canvas" resize></canvas>
+<div style='float:left;max-width:300px'>
+	<h3>WebRTC Android Browser Remote Pen/Touch Input and Drawing</h3>
+	<a href="#" onclick="PenDrawing.downloadSVG(); return false">[generate svg]</a>&nbsp;/
+	<a href="#" onclick="PenDrawing.clearCanvas(); return false">[clear canvas]</a>
+	<pre class="small">
+stroke width = <span id="pressureFactorValue">8</span>
+
+tool = <span id="current_tool">brush</span>
+   <span id="tool_description">drag to draw</span>
+
+color = <input type=color id='color_change'>
+
+b : brush
+n : pencil
+e : eraser (click the line)
+E : clear layer
+
+z : undo
+Z : redo
+1 : stroke width -
+2 : stroke width +
+
+m : mover
+t : toggle draft layer
+</pre>
 </div>
-<div style="z-index:1; top:0; left:0;position:absolute;width:100%; height:100%">
-	<canvas id="canvas" resize></canvas>
-</div>
-<div style="z-index:2; position:absolute; margin-left:10px; margin-top:120px">
-	<!-- memo -->
-	<div class="small">
-		<b>stroke width =
-			<span id="pressureFactorValue">8</span>
-		</b>
-		<br>
-		<br>
-		<b>tool =
-			<span id="current_tool">brush</span>
-		</b>
-		<br>&nbsp;
-		<span id="tool_description">drag to draw</span>
-		<br>
-		<br>b : brush
-		<br>n : pencil
-		<br>e : eraser (click the line)
-		<br>e (+shift) : clear layer
-		<br>
-		<br>z : undo
-		<br>z (+shift) : redo
-		<br>1 : stroke width -
-		<br>2 : stroke width +
-		<br>
-		<br>m : mover
-		<br>t : toggle draft layer
-		<br>
-	</div>
-</div>
-</div>
-<div style="z-index:3; position:absolute;margin-left:10px">[
-	<a href="#" onclick="downloadSVG(); return false">generate svg</a>]
-	<span class="small">&lt;- toggles visible of the textarea</span>/ [
-	<a href="#" onclick="clearCanvas('canvas'); return false">clear canvas</a>]</div>
-<script src="bin/webrtcpen.js"></script>

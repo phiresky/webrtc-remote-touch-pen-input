@@ -182,12 +182,15 @@ var __extends = (this && this.__extends) || function (d, b) {
 var PenDrawing;
 (function (PenDrawing) {
     var project;
-    var kUndoLimit = 200;
-    PenDrawing.tools;
+    var tools;
+    var stroke_color = "#000000";
+    var pressure_factor = 8;
+    var min_dist_squared = 4 * 4;
     function initialize(canvas) {
         paper.setup(canvas);
+        $("#color_change").change(function (evt) { return stroke_color = evt.target.value; });
         project = paper.project;
-        PenDrawing.tools = [new Brush(), new Pencil(), new Mover(), new Eraser()];
+        tools = [new Brush(), new Pencil(), new Mover(), new Eraser()];
     }
     PenDrawing.initialize = initialize;
     var UndoRedo;
@@ -207,27 +210,27 @@ var PenDrawing;
         })();
         UndoRedo.DeleteItem = DeleteItem;
         var ModifyItem = (function () {
-            function ModifyItem(itm, itm2, itm3) {
+            function ModifyItem(itm, offset) {
                 this.itm = itm;
-                this.itm2 = itm2;
-                this.itm3 = itm3;
+                this.offset = offset;
             }
             ModifyItem.prototype.perform = function (is_undo) {
-                this.itm.translate(is_undo ? this.itm2 : this.itm3);
+                this.itm.translate(is_undo ? this.offset.multiply(-1) : this.offset);
             };
             return ModifyItem;
         })();
         UndoRedo.ModifyItem = ModifyItem;
         var UndoRedoSystem = (function () {
-            function UndoRedoSystem() {
+            function UndoRedoSystem(limit) {
+                if (limit === void 0) { limit = 200; }
+                this.limit = limit;
                 this.undoArray = [];
                 this.redoArray = [];
             }
-            UndoRedoSystem.prototype.cleanUndo = function () {
-                if (kUndoLimit > 0) {
-                    while (this.undoArray.length > kUndoLimit)
+            UndoRedoSystem.prototype.limitUndo = function () {
+                if (this.limit > 0)
+                    while (this.undoArray.length > this.limit)
                         this.undoArray.shift();
-                }
             };
             UndoRedoSystem.prototype.undo = function () {
                 if (this.undoArray.length > 0) {
@@ -241,12 +244,12 @@ var PenDrawing;
                     var arr = this.redoArray.pop();
                     arr.perform(false);
                     this.undoArray.push(arr);
-                    this.cleanUndo();
+                    this.limitUndo();
                 }
             };
             UndoRedoSystem.prototype.append = function (item) {
                 this.undoArray.push(item);
-                this.cleanUndo();
+                this.limitUndo();
                 this.clear(this.redoArray);
             };
             UndoRedoSystem.prototype.clearAll = function () {
@@ -254,26 +257,15 @@ var PenDrawing;
                 this.clear(this.redoArray);
             };
             UndoRedoSystem.prototype.clear = function (r) {
-                var arr, typ, itm;
+                var arr;
                 while (r.length > 0) {
                     arr = r.shift();
-                    typ = arr[0];
-                    itm = arr[1];
-                    if (typ == "dd") {
-                        if (itm) {
-                            for (var i = 0; i < itm.length; i++) {
-                                if (itm[i] && !itm[i].visible) {
-                                    itm[i].remove();
-                                    itm[i] = null;
-                                }
-                            }
-                        }
-                    }
-                    else {
-                        if (itm && !itm.visible) {
-                            itm.remove();
-                            itm = null;
-                        }
+                    var items = arr instanceof DeleteItem ? arr.itm
+                        : arr instanceof ModifyItem ? [arr.itm] : [];
+                    for (var _i = 0; _i < items.length; _i++) {
+                        var i = items[_i];
+                        if (i && !i.visible)
+                            i.remove();
                     }
                 }
             };
@@ -282,7 +274,6 @@ var PenDrawing;
         UndoRedo.UndoRedoSystem = UndoRedoSystem;
     })(UndoRedo || (UndoRedo = {}));
     var undoRedo = new UndoRedo.UndoRedoSystem();
-    window.undoRedo = undoRedo;
     function downloadSVG() {
         var out = paper.project.exportSVG({ asString: true });
         var a = document.createElement("a");
@@ -291,18 +282,14 @@ var PenDrawing;
         a.download = "Drawing " + date + ".svg";
         a.click();
     }
-    function clearCanvas(canvas_name) {
+    PenDrawing.downloadSVG = downloadSVG;
+    function clearCanvas() {
         paper.project.clear();
         undoRedo.clearAll();
     }
+    PenDrawing.clearCanvas = clearCanvas;
     var path;
     var myLastPoint;
-    var opt = {
-        stroke_color: "#000000",
-        pressure_factor: 8,
-        min_dist_squared: 4 * 4,
-        target_item: null
-    };
     var NamedTool = (function (_super) {
         __extends(NamedTool, _super);
         function NamedTool(name, desc) {
@@ -310,8 +297,7 @@ var PenDrawing;
             this.name = name;
             this.desc = desc;
             this.onKeyDown = function (event) {
-                console.log(event);
-                switch (event.key) {
+                switch (event.character) {
                     case "1":
                         addToStrokeWidthValue(-1);
                         break;
@@ -319,23 +305,17 @@ var PenDrawing;
                         addToStrokeWidthValue(1);
                         break;
                     case "z":
-                        if (event.modifiers.shift) {
-                            undoRedo.redo();
-                            break;
-                        }
-                        else {
-                            undoRedo.undo();
-                            break;
-                        }
+                        undoRedo.undo();
+                        break;
+                    case "Z":
+                        undoRedo.redo();
+                        break;
+                    case "E":
+                        clearLayer();
+                        break;
                     case "e":
-                        if (event.modifiers.shift) {
-                            clearLayer();
-                            break;
-                        }
-                        else {
-                            changeTool(Eraser);
-                            break;
-                        }
+                        changeTool(Eraser);
+                        break;
                     case "b":
                         changeTool(Brush);
                         break;
@@ -362,10 +342,10 @@ var PenDrawing;
                 myLastPoint = event.point;
             };
             this.onMouseDrag = function (event) {
-                if (event.point.getDistance(myLastPoint, true) > opt.min_dist_squared) {
+                if (event.point.getDistance(myLastPoint, true) > min_dist_squared) {
                     if (!path) {
                         path = new paper.Path();
-                        path.fillColor = opt.stroke_color;
+                        path.fillColor = stroke_color;
                         path.closed = true;
                         path.add(myLastPoint);
                     }
@@ -374,7 +354,7 @@ var PenDrawing;
                     }
                     var pressure = WebRTCPen.info.pressure || 1.0;
                     var v = event.point.subtract(myLastPoint).divide(2);
-                    var vp = v.normalize().multiply(pressure).multiply(opt.pressure_factor);
+                    var vp = v.normalize().multiply(pressure).multiply(pressure_factor);
                     vp.angle = vp.angle + 90;
                     path.add(myLastPoint.add(v).add(vp));
                     path.insert(0, myLastPoint.add(v).subtract(vp));
@@ -398,19 +378,18 @@ var PenDrawing;
         }
         return Brush;
     })(NamedTool);
-    var _tmp = new Brush();
     var Pencil = (function (_super) {
         __extends(Pencil, _super);
         function Pencil() {
             _super.call(this);
             this.maxDistance = 8;
             this.onMouseDrag = function (event) {
-                if (event.point.getDistance(myLastPoint, true) > opt.min_dist_squared) {
+                if (event.point.getDistance(myLastPoint, true) > min_dist_squared) {
                     if (!path) {
                         path = new paper.Path();
-                        path.strokeColor = opt.stroke_color;
+                        path.strokeColor = stroke_color;
                         path.closed = false;
-                        path.strokeWidth = opt.pressure_factor | 0;
+                        path.strokeWidth = +pressure_factor;
                         path.add(myLastPoint);
                     }
                     path.add(event.point);
@@ -425,26 +404,35 @@ var PenDrawing;
     var Mover = (function (_super) {
         __extends(Mover, _super);
         function Mover() {
+            var _this = this;
             _super.call(this, "mover", "drag to move");
             this.maxDistance = 8;
             this.onMouseDown = function (event) {
-                for (var i = 0; i < project.selectedItems.length; i++) {
-                    project.selectedItems[i].selected = false;
+                for (var _i = 0, _a = project.selectedItems; _i < _a.length; _i++) {
+                    var itm = _a[_i];
+                    itm.selected = false;
                 }
                 var result = project.hitTest(event.point);
                 if (result && result.item) {
                     result.item.selected = true;
-                    opt.target_item = result.item;
+                    _this.target = result.item;
                     myLastPoint = event.point;
                 }
                 else {
-                    opt.target_item = null;
+                    _this.target = null;
                 }
             };
             this.onMouseDrag = function (event) {
-                if (opt.target_item) {
-                    opt.target_item.translate(event.point.subtract(myLastPoint));
+                if (_this.target) {
+                    _this.target.translate(event.point.subtract(myLastPoint));
                     myLastPoint = event.point;
+                }
+            };
+            this.onMouseUp = function (event) {
+                if (_this.target) {
+                    undoRedo.append(new UndoRedo.ModifyItem(_this.target, event.delta));
+                    _this.target.selected = false;
+                    _this.target = null;
                 }
             };
         }
@@ -462,23 +450,16 @@ var PenDrawing;
                     undoRedo.append(new UndoRedo.DeleteItem([result.item]));
                 }
             };
-            this.onMouseUp = function (event) {
-                if (opt.target_item) {
-                    undoRedo.append(new UndoRedo.ModifyItem(opt.target_item, event.delta.multiply(-1), event.delta));
-                    opt.target_item.selected = false;
-                    opt.target_item = null;
-                }
-            };
         }
         return Eraser;
     })(NamedTool);
     function clearLayer() {
         var r = [];
-        var cs = project.activeLayer.children;
-        for (var i = 0; i < cs.length; i++) {
-            if (cs[i].visible) {
-                cs[i].visible = false;
-                r.push(cs[i]);
+        for (var _i = 0, _a = project.activeLayer.children; _i < _a.length; _i++) {
+            var i = _a[_i];
+            if (i.visible) {
+                i.visible = false;
+                r.push(i);
             }
         }
         undoRedo.append(new UndoRedo.DeleteItem(r));
@@ -488,27 +469,21 @@ var PenDrawing;
             new paper.Layer();
         }
         else {
-            var lay0 = project.layers[0];
-            var lay1 = project.layers[1];
-            lay0.moveAbove(lay1);
+            project.layers[0].moveAbove(project.layers[1]);
         }
         project.layers[0].opacity = 0.1;
         project.layers[1].opacity = 1.0;
         project.activeLayer = project.layers[1];
     }
     function changeTool(tool_class) {
-        var tool = PenDrawing.tools.filter(function (tool) { return tool instanceof tool_class; })[0];
-        console.log(tool);
-        document.getElementById('current_tool').innerHTML = tool.name;
-        console.log(document.getElementById('current_tool'), tool.name);
-        document.getElementById('tool_description').innerHTML = tool.desc;
+        var tool = tools.filter(function (tool) { return tool instanceof tool_class; })[0];
+        $('#current_tool').text(tool.name);
+        $('#tool_description').text(tool.desc);
         tool.activate();
     }
     function addToStrokeWidthValue(n) {
-        if (opt.pressure_factor > 1 && opt.pressure_factor < 20) {
-            opt.pressure_factor += n;
-            document.getElementById('pressureFactorValue').innerHTML = "" + opt.pressure_factor;
-        }
+        if (pressure_factor > 1 && pressure_factor < 20)
+            $('#pressureFactorValue').text(pressure_factor += n);
     }
 })(PenDrawing || (PenDrawing = {}));
 //# sourceMappingURL=webrtcpen.js.map

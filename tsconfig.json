@@ -1,7 +1,8 @@
 {
 	"compilerOptions": {
 		"out": "bin/webrtcpen.js",
-		"sourceMap": true
+		"sourceMap": true,
+		"noImplicitAny": true
 	},
 	"files":[
 		"lib/typings/jquery/jquery.d.ts",

@@ -34,14 +34,14 @@ module WebRTCPen {
 		server: string; // the nodejs server that handles the sessions
 		emulateMouse?: boolean;
 	}
-	let moveDiv = $("<div>").css({position:'absolute', borderRadius: '100%', display:'none', zIndex:99});
+	let moveDiv = $("<div>").css({ position: 'absolute', borderRadius: '100%', display: 'none', zIndex: 99 });
 	function onConnectionInit() {
 		moveDiv.appendTo($("body"));
 	}
 	function onMessage(msg: string) {
 		info = JSON.parse(msg);
 		document.dispatchEvent(new CustomEvent("webrtcpen", { detail: info }));
-		if(config.emulateMouse) emulateMouse(info);
+		if (config.emulateMouse) emulateMouse(info);
 		let color = info.tooltype == ToolType.finger ? 'red' : 'green';
 		let size = info.pressure * penSize;
 		if (info.event == 'touch') {
@@ -50,8 +50,8 @@ module WebRTCPen {
 			size = penSize / 2;
 		}
 		moveDiv.css({
-			display: info.action == Action.Hover_Exit || info.action == Action.Up ? 'none':'inherit',
-			top: info.y - size / 2, left: info.x - size / 2, 
+			display: info.action == Action.Hover_Exit || info.action == Action.Up ? 'none' : 'inherit',
+			top: info.y - size / 2, left: info.x - size / 2,
 			background: color, width: size, height: size
 		});
 	}
@@ -59,9 +59,9 @@ module WebRTCPen {
 		config = _config;
 		$(() => // wait for document ready
 			RTC.pc1(config.server, onConnectionInit.bind(WebRTCPen), onMessage.bind(WebRTCPen))
-		);
+			);
 	}
-	let lastEle = null;
+	let lastEle: Node = null;
 	function emulateMouse(info: PenInformation) {
 		var type = ["mousedown", "mouseup", "mousemove", "mouseup", "mouseup", , , "mousemove", , , ][info.action];
 		if (type) {
@@ -76,7 +76,7 @@ module WebRTCPen {
 				view: window
 			};
 			ele.dispatchEvent(new MouseEvent(type, evt));
-			if(type === 'mouseup' && ele === lastEle)
+			if (type === 'mouseup' && ele === lastEle)
 				ele.dispatchEvent(new MouseEvent('click', evt));
 			lastEle = ele;
 		}
@@ -92,7 +92,7 @@ module WebRTCPen.RTC {
 	function succ(...x: any[]) {
 		console.log("success", arguments, succ.caller);
 	}
-	function fail(e?, m?) {
+	function fail(e?: any, m?: any) {
 		$(".container,body").eq(0).append($("<div class='alert alert-danger'>").text("error: " + m + ":" + e.status));
 		console.error("failure", arguments, succ.caller);
 	}
@@ -104,7 +104,7 @@ module WebRTCPen.RTC {
 		if (typeof desc === 'string') desc = JSON.parse(desc);
 		return new RTCSessionDescription(desc);
 	}
-	function whenIceDone(callback) {
+	function whenIceDone(callback: () => void) {
 		// todo: this a hack?
 		pc.onicecandidate = ev => { if (ev.candidate == null) callback(); }
 	}
@@ -115,7 +115,7 @@ module WebRTCPen.RTC {
 		return qr;
 	}
 
-	export function pc1(server, onConnectionInit, onMessage) {
+	export function pc1(server: string, onConnectionInit: () => void, onMessage: (s: string) => void) {
 		let qr = addSpinner();
 		pc = new RTCPeerConnection(cfg, con);
 		channel = pc.createDataChannel('test', { maxRetransmits: 0/*reliable: true*/ });
