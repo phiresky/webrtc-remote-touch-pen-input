@@ -6,7 +6,10 @@ let fs = require('fs'),
 	crypto = require('crypto'),
 	url = require('url');
 
-let PORT = 3001;
+let HOST = process.env.OPENSHIFT_NODEJS_IP || "0.0.0.0";
+let PORT = process.env.OPENSHIFT_NODEJS_PORT || 3001;
+
+
 
 let sessions = {}; // body:string, req: PC request
 let sessionQueue = [];
@@ -33,6 +36,7 @@ function postRequest(body, key, res) {
 }
 
 function getRequest(key, res) {
+	if(key.length == 0) res.end('hi'); // for up check
 	if (key in sessions) {
 		let info = sessions[key];
 		if (!info.res) info.res = res;
@@ -48,4 +52,5 @@ http.createServer((req, res) => {
 		req.on('data', d => { body += d; if (body.length > 1e4) req.connection.destroy(); });
 		req.on('end',() => postRequest(body, key, res));
 	} else getRequest(key, res);
-}).listen(PORT);
+}).listen(PORT, HOST);
+console.log("listening on " + HOST + ":" + PORT);
