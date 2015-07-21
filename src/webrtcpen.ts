@@ -149,7 +149,7 @@ module WebRTCPen.RTC {
 
 	export function pc2(server: string, key: string) {
 		pc = new RTCPeerConnection(cfg, con);
-		// this is what the client (android) does
+		// this is what the client (android) does for connecting
 		pc.ondatachannel = (event: RTCDataChannelEvent) => channel = event.channel;
 		$.getJSON(server + key).then(deserializeRTCDesc).then(offer => {
 			pc.setRemoteDescription(offer, succ, fail);
