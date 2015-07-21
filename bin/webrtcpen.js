@@ -172,110 +172,116 @@ var WebRTCPen;
         RTC.pc2 = pc2;
     })(RTC = WebRTCPen.RTC || (WebRTCPen.RTC = {}));
 })(WebRTCPen || (WebRTCPen = {}));
+var __extends = (this && this.__extends) || function (d, b) {
+    for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
+    function __() { this.constructor = d; }
+    __.prototype = b.prototype;
+    d.prototype = new __();
+};
 // adapted from https://github.com/shspage/paperjs-pressure-pdfout
 var PenDrawing;
 (function (PenDrawing) {
     var project;
+    var kUndoLimit = 200;
+    PenDrawing.tools;
     function initialize(canvas) {
         paper.setup(canvas);
         project = paper.project;
-        paper.tool = new paper.Tool();
-        paper.tool.maxDistance = 8;
-        paper.tool.onMouseDown = onMouseDown;
-        paper.tool.onMouseUp = onMouseUp;
-        paper.tool.onKeyDown = onKeyDown;
-        paper.tool.onMouseDrag = onMouseDrag;
+        PenDrawing.tools = [new Brush(), new Pencil(), new Mover(), new Eraser()];
     }
     PenDrawing.initialize = initialize;
-    var kUndoLimit = 200;
-    var UndoRedoSystemArray = (function () {
-        function UndoRedoSystemArray(name) {
-            this.name = name;
-            this.r = [];
-            this.name = name;
-        }
-        UndoRedoSystemArray.prototype.clear = function () {
-            var arr, typ, itm;
-            while (this.r.length > 0) {
-                arr = this.r.shift();
-                typ = arr[0];
-                itm = arr[1];
-                if (typ == "dd") {
-                    if (itm) {
-                        for (var i = 0; i < itm.length; i++) {
-                            if (itm[i] && !itm[i].visible) {
-                                itm[i].remove();
-                                itm[i] = null;
-                            }
-                        }
-                    }
-                }
-                else {
-                    if (itm && !itm.visible) {
-                        itm.remove();
-                        itm = null;
-                    }
-                }
+    var UndoRedo;
+    (function (UndoRedo) {
+        var DeleteItem = (function () {
+            function DeleteItem(itm) {
+                this.itm = itm;
             }
-        };
-        UndoRedoSystemArray.prototype.store = function (arr) {
-            this.r.push(arr);
-            if (kUndoLimit > 0 && this.name == "undo") {
-                while (this.r.length > kUndoLimit) {
-                    this.r.shift();
-                }
-            }
-        };
-        return UndoRedoSystemArray;
-    })();
-    ;
-    var UndoRedoSystem = (function () {
-        function UndoRedoSystem() {
-            this.undoArray = new UndoRedoSystemArray("undo");
-            this.redoArray = new UndoRedoSystemArray("redo");
-        }
-        UndoRedoSystem.prototype._perform = function (arr, is_undo) {
-            var itm = arr[1];
-            if (arr[0] == "d") {
-                if (itm)
-                    itm.visible = !itm.visible;
-            }
-            else if (arr[0] == "dd") {
-                for (var _i = 0; _i < itm.length; _i++) {
-                    var i = itm[_i];
+            DeleteItem.prototype.perform = function (is_undo) {
+                for (var _i = 0, _a = this.itm; _i < _a.length; _i++) {
+                    var i = _a[_i];
                     if (i)
                         i.visible = !i.visible;
                 }
+            };
+            return DeleteItem;
+        })();
+        UndoRedo.DeleteItem = DeleteItem;
+        var ModifyItem = (function () {
+            function ModifyItem(itm, itm2, itm3) {
+                this.itm = itm;
+                this.itm2 = itm2;
+                this.itm3 = itm3;
             }
-            else if (arr[0] == "m") {
-                itm.translate(is_undo ? arr[2] : arr[3]);
+            ModifyItem.prototype.perform = function (is_undo) {
+                this.itm.translate(is_undo ? this.itm2 : this.itm3);
+            };
+            return ModifyItem;
+        })();
+        UndoRedo.ModifyItem = ModifyItem;
+        var UndoRedoSystem = (function () {
+            function UndoRedoSystem() {
+                this.undoArray = [];
+                this.redoArray = [];
             }
-        };
-        UndoRedoSystem.prototype.undo = function () {
-            if (this.undoArray.r.length > 0) {
-                var arr = this.undoArray.r.pop();
-                this._perform(arr, true);
-                this.redoArray.store(arr);
-            }
-        };
-        UndoRedoSystem.prototype.redo = function () {
-            if (this.redoArray.r.length > 0) {
-                var arr = this.redoArray.r.pop();
-                this._perform(arr, false);
-                this.undoArray.store(arr);
-            }
-        };
-        UndoRedoSystem.prototype.append = function (arr) {
-            this.undoArray.store(arr);
-            this.redoArray.clear();
-        };
-        UndoRedoSystem.prototype.clearAll = function () {
-            this.undoArray.clear();
-            this.redoArray.clear();
-        };
-        return UndoRedoSystem;
-    })();
-    var undoRedo = new UndoRedoSystem();
+            UndoRedoSystem.prototype.cleanUndo = function () {
+                if (kUndoLimit > 0) {
+                    while (this.undoArray.length > kUndoLimit)
+                        this.undoArray.shift();
+                }
+            };
+            UndoRedoSystem.prototype.undo = function () {
+                if (this.undoArray.length > 0) {
+                    var arr = this.undoArray.pop();
+                    arr.perform(true);
+                    this.redoArray.push(arr);
+                }
+            };
+            UndoRedoSystem.prototype.redo = function () {
+                if (this.redoArray.length > 0) {
+                    var arr = this.redoArray.pop();
+                    arr.perform(false);
+                    this.undoArray.push(arr);
+                    this.cleanUndo();
+                }
+            };
+            UndoRedoSystem.prototype.append = function (item) {
+                this.undoArray.push(item);
+                this.cleanUndo();
+                this.clear(this.redoArray);
+            };
+            UndoRedoSystem.prototype.clearAll = function () {
+                this.clear(this.undoArray);
+                this.clear(this.redoArray);
+            };
+            UndoRedoSystem.prototype.clear = function (r) {
+                var arr, typ, itm;
+                while (r.length > 0) {
+                    arr = r.shift();
+                    typ = arr[0];
+                    itm = arr[1];
+                    if (typ == "dd") {
+                        if (itm) {
+                            for (var i = 0; i < itm.length; i++) {
+                                if (itm[i] && !itm[i].visible) {
+                                    itm[i].remove();
+                                    itm[i] = null;
+                                }
+                            }
+                        }
+                    }
+                    else {
+                        if (itm && !itm.visible) {
+                            itm.remove();
+                            itm = null;
+                        }
+                    }
+                }
+            };
+            return UndoRedoSystem;
+        })();
+        UndoRedo.UndoRedoSystem = UndoRedoSystem;
+    })(UndoRedo || (UndoRedo = {}));
+    var undoRedo = new UndoRedo.UndoRedoSystem();
     window.undoRedo = undoRedo;
     function downloadSVG() {
         var out = paper.project.exportSVG({ asString: true });
@@ -292,106 +298,180 @@ var PenDrawing;
     var path;
     var myLastPoint;
     var opt = {
-        tool_name: "brush",
         stroke_color: "#000000",
         pressure_factor: 8,
         min_dist_squared: 4 * 4,
-        target_item: null,
-        tool_desc: {
-            "brush": "drag to draw",
-            "eraser": "CLICK to erase",
-            "mover": "drag to move",
-            "pencil": "drag to draw" }
+        target_item: null
     };
-    function onMouseDown(event) {
-        if (opt.tool_name == "brush" || opt.tool_name == "pencil") {
-            myLastPoint = event.point;
+    var NamedTool = (function (_super) {
+        __extends(NamedTool, _super);
+        function NamedTool(name, desc) {
+            _super.call(this);
+            this.name = name;
+            this.desc = desc;
+            this.onKeyDown = function (event) {
+                console.log(event);
+                switch (event.key) {
+                    case "1":
+                        addToStrokeWidthValue(-1);
+                        break;
+                    case "2":
+                        addToStrokeWidthValue(1);
+                        break;
+                    case "z":
+                        if (event.modifiers.shift) {
+                            undoRedo.redo();
+                            break;
+                        }
+                        else {
+                            undoRedo.undo();
+                            break;
+                        }
+                    case "e":
+                        if (event.modifiers.shift) {
+                            clearLayer();
+                            break;
+                        }
+                        else {
+                            changeTool(Eraser);
+                            break;
+                        }
+                    case "b":
+                        changeTool(Brush);
+                        break;
+                    case "m":
+                        changeTool(Mover);
+                        break;
+                    case "n":
+                        changeTool(Pencil);
+                        break;
+                    case "t":
+                        toggleDraft();
+                        break;
+                }
+            };
         }
-        else if (opt.tool_name == "mover") {
-            for (var i = 0; i < project.selectedItems.length; i++) {
-                project.selectedItems[i].selected = false;
-            }
-            var result = project.hitTest(event.point);
-            if (result && result.item) {
-                result.item.selected = true;
-                opt.target_item = result.item;
+        return NamedTool;
+    })(paper.Tool);
+    var Brush = (function (_super) {
+        __extends(Brush, _super);
+        function Brush() {
+            _super.call(this, "brush", "drag to draw");
+            this.maxDistance = 8;
+            this.onMouseDown = function (event) {
                 myLastPoint = event.point;
-            }
-            else {
-                opt.target_item = null;
-            }
-        }
-        else if (opt.tool_name == "eraser") {
-            var result = project.hitTest(event.point);
-            if (result && result.item) {
-                result.item.visible = false;
-                undoRedo.append(["d", result.item]);
-            }
-        }
-    }
-    function onMouseDrag(event) {
-        if (opt.tool_name == "brush" || opt.tool_name == "pencil") {
-            if (event.point.getDistance(myLastPoint, true) > opt.min_dist_squared) {
-                if (!path) {
-                    path = new paper.Path();
-                    if (opt.tool_name == "brush") {
+            };
+            this.onMouseDrag = function (event) {
+                if (event.point.getDistance(myLastPoint, true) > opt.min_dist_squared) {
+                    if (!path) {
+                        path = new paper.Path();
                         path.fillColor = opt.stroke_color;
                         path.closed = true;
+                        path.add(myLastPoint);
                     }
                     else {
-                        path.strokeColor = opt.stroke_color;
-                        path.closed = false;
-                        path.strokeWidth = opt.pressure_factor | 0;
-                    }
-                    path.add(myLastPoint);
-                }
-                else {
-                    if (opt.tool_name == "brush") {
                         path.lastSegment.remove();
                     }
-                }
-                if (opt.tool_name == "brush") {
                     var pressure = WebRTCPen.info.pressure || 1.0;
                     var v = event.point.subtract(myLastPoint).divide(2);
                     var vp = v.normalize().multiply(pressure).multiply(opt.pressure_factor);
                     vp.angle = vp.angle + 90;
                     path.add(myLastPoint.add(v).add(vp));
                     path.insert(0, myLastPoint.add(v).subtract(vp));
+                    path.add(event.point);
+                    path.smooth();
+                    myLastPoint = event.point;
                 }
-                path.add(event.point);
-                path.smooth();
-                myLastPoint = event.point;
-            }
+            };
+            this.onMouseUp = function (event) {
+                if (path) {
+                    if (path.segments.length < 2) {
+                        path.remove();
+                    }
+                    else {
+                        path.simplify();
+                        undoRedo.append(new UndoRedo.DeleteItem([path]));
+                    }
+                    path = null;
+                }
+            };
         }
-        else if (opt.tool_name == "mover") {
-            if (opt.target_item) {
-                opt.target_item.translate(event.point.subtract(myLastPoint));
-                myLastPoint = event.point;
-            }
+        return Brush;
+    })(NamedTool);
+    var _tmp = new Brush();
+    var Pencil = (function (_super) {
+        __extends(Pencil, _super);
+        function Pencil() {
+            _super.call(this);
+            this.maxDistance = 8;
+            this.onMouseDrag = function (event) {
+                if (event.point.getDistance(myLastPoint, true) > opt.min_dist_squared) {
+                    if (!path) {
+                        path = new paper.Path();
+                        path.strokeColor = opt.stroke_color;
+                        path.closed = false;
+                        path.strokeWidth = opt.pressure_factor | 0;
+                        path.add(myLastPoint);
+                    }
+                    path.add(event.point);
+                    path.smooth();
+                    myLastPoint = event.point;
+                }
+            };
+            this.name = 'pencil';
         }
-    }
-    function onMouseUp(event) {
-        if (opt.tool_name == "brush" || opt.tool_name == "pencil") {
-            if (path) {
-                if (path.segments.length < 2) {
-                    path.remove();
+        return Pencil;
+    })(Brush);
+    var Mover = (function (_super) {
+        __extends(Mover, _super);
+        function Mover() {
+            _super.call(this, "mover", "drag to move");
+            this.maxDistance = 8;
+            this.onMouseDown = function (event) {
+                for (var i = 0; i < project.selectedItems.length; i++) {
+                    project.selectedItems[i].selected = false;
+                }
+                var result = project.hitTest(event.point);
+                if (result && result.item) {
+                    result.item.selected = true;
+                    opt.target_item = result.item;
+                    myLastPoint = event.point;
                 }
                 else {
-                    path.simplify();
-                    undoRedo.append(["d", path]);
+                    opt.target_item = null;
                 }
-                path = null;
-            }
+            };
+            this.onMouseDrag = function (event) {
+                if (opt.target_item) {
+                    opt.target_item.translate(event.point.subtract(myLastPoint));
+                    myLastPoint = event.point;
+                }
+            };
         }
-        else if (opt.tool_name == "mover") {
-            if (opt.target_item) {
-                undoRedo.append(["m", opt.target_item,
-                    event.delta.multiply(-1), event.delta]);
-                opt.target_item.selected = false;
-                opt.target_item = null;
-            }
+        return Mover;
+    })(NamedTool);
+    var Eraser = (function (_super) {
+        __extends(Eraser, _super);
+        function Eraser() {
+            _super.call(this, "eraser", "CLICK to erase");
+            this.maxDistance = 8;
+            this.onMouseDown = function (event) {
+                var result = project.hitTest(event.point);
+                if (result && result.item) {
+                    result.item.visible = false;
+                    undoRedo.append(new UndoRedo.DeleteItem([result.item]));
+                }
+            };
+            this.onMouseUp = function (event) {
+                if (opt.target_item) {
+                    undoRedo.append(new UndoRedo.ModifyItem(opt.target_item, event.delta.multiply(-1), event.delta));
+                    opt.target_item.selected = false;
+                    opt.target_item = null;
+                }
+            };
         }
-    }
+        return Eraser;
+    })(NamedTool);
     function clearLayer() {
         var r = [];
         var cs = project.activeLayer.children;
@@ -401,7 +481,7 @@ var PenDrawing;
                 r.push(cs[i]);
             }
         }
-        undoRedo.append(["dd", r]);
+        undoRedo.append(new UndoRedo.DeleteItem(r));
     }
     function toggleDraft() {
         if (project.layers.length < 2) {
@@ -416,55 +496,18 @@ var PenDrawing;
         project.layers[1].opacity = 1.0;
         project.activeLayer = project.layers[1];
     }
-    function changeTool(tool_name) {
-        opt.tool_name = tool_name;
-        document.getElementById('current_tool').innerHTML = tool_name;
-        document.getElementById('tool_description').innerHTML = opt.tool_desc[tool_name];
+    function changeTool(tool_class) {
+        var tool = PenDrawing.tools.filter(function (tool) { return tool instanceof tool_class; })[0];
+        console.log(tool);
+        document.getElementById('current_tool').innerHTML = tool.name;
+        console.log(document.getElementById('current_tool'), tool.name);
+        document.getElementById('tool_description').innerHTML = tool.desc;
+        tool.activate();
     }
     function addToStrokeWidthValue(n) {
         if (opt.pressure_factor > 1 && opt.pressure_factor < 20) {
             opt.pressure_factor += n;
             document.getElementById('pressureFactorValue').innerHTML = "" + opt.pressure_factor;
-        }
-    }
-    function onKeyDown(event) {
-        switch (event.key) {
-            case "1":
-                addToStrokeWidthValue(-1);
-                break;
-            case "2":
-                addToStrokeWidthValue(1);
-                break;
-            case "z":
-                if (event.modifiers.shift) {
-                    undoRedo.redo();
-                    break;
-                }
-                else {
-                    undoRedo.undo();
-                    break;
-                }
-            case "e":
-                if (event.modifiers.shift) {
-                    clearLayer();
-                    break;
-                }
-                else {
-                    changeTool("eraser");
-                    break;
-                }
-            case "b":
-                changeTool("brush");
-                break;
-            case "m":
-                changeTool("mover");
-                break;
-            case "n":
-                changeTool("pencil");
-                break;
-            case "t":
-                toggleDraft();
-                break;
         }
     }
 })(PenDrawing || (PenDrawing = {}));

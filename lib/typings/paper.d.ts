@@ -1554,7 +1554,7 @@ declare module paper {
          * Translates (moves) the item by the given offset point.
          * @param delta - the offset to translate the item by
          */
-        translate(delta: number): Point;
+        translate(delta: Point): Point;
 
         /** 
          * Rotates the item by a given angle around the given point.
