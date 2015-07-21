@@ -4,6 +4,8 @@ Uses a peer to peer WebRTC connection to transmit touch/pen input from an androi
 
 Connection is established using a simple QR code.
 
+A hosted version of the web component is at https://phiresky.github.io/webrtc-remote-touch-pen-input
+
 Demo:
 
 [![Youtube Demo](http://share.gifyoutube.com/mLDpOR.gif)](https://www.youtube.com/watch?v=Gvsm84xL9Sk)
