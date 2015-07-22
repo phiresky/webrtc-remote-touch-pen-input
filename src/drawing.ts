@@ -3,7 +3,7 @@ module PenDrawing {
 	let project: paper.Project;
 	let tools: NamedTool[];
 	let stroke_color = "#000000";
-	let pressure_factor = 8;
+	let pressure_factor = 4;
 	let min_dist_squared = 4 * 4;
 
 	export function initialize(canvas: HTMLCanvasElement|string) {

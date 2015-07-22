@@ -45,9 +45,7 @@ var WebRTCPen;
             emulateMouse(WebRTCPen.info);
         var color = WebRTCPen.info.tooltype == ToolType.finger ? 'red' : 'green';
         var size = WebRTCPen.info.pressure * WebRTCPen.penSize;
-        if (WebRTCPen.info.event == 'touch') {
-        }
-        else {
+        if (WebRTCPen.info.event != 'touch') {
             color = 'black';
             size = WebRTCPen.penSize / 2;
         }
@@ -61,9 +59,8 @@ var WebRTCPen;
         config = _config;
         if (config.server[config.server.length - 1] != '/')
             config.server += '/';
-        $(function () {
-            return WebRTCPen.RTC.pc1(config.server, onConnectionInit.bind(WebRTCPen), onMessage.bind(WebRTCPen));
-        });
+        // wait for document ready
+        $(function () { return WebRTCPen.RTC.pc1(config.server, onConnectionInit.bind(WebRTCPen), onMessage.bind(WebRTCPen)); });
     }
     WebRTCPen.initialize = initialize;
     var lastEle = null;
@@ -72,10 +69,8 @@ var WebRTCPen;
         if (type) {
             var ele = (document.elementFromPoint(info.x, info.y) || document);
             var evt = {
-                screenX: window.screenX + info.x,
-                screenY: window.screenY + info.y,
-                clientX: info.x,
-                clientY: info.y,
+                screenX: window.screenX + info.x, screenY: window.screenY + info.y,
+                clientX: info.x, clientY: info.y,
                 bubbles: true,
                 cancelable: true,
                 view: window
@@ -91,8 +86,7 @@ var WebRTCPen;
 (function (WebRTCPen) {
     var RTC;
     (function (RTC) {
-        RTC.pc;
-        RTC.channel;
+        RTC.pc, RTC.channel;
         var cfg = { iceServers: [{ url: "stun:23.21.150.121" }, { url: "stun:stun.l.google.com:19302" }] };
         var con = { optional: [{ DtlsSrtpKeyAgreement: true }] };
         var qrsize = 300;
@@ -117,15 +111,16 @@ var WebRTCPen;
             return new RTCSessionDescription(desc);
         }
         function whenIceDone(callback) {
-            // todo: this a hack?
+            // todo: is this a hack?
             RTC.pc.onicecandidate = function (ev) { if (ev.candidate == null)
                 callback(); };
         }
         function addSpinner() {
-            $("<style>@keyframes rotateplane{0%{transform:perspective(120px) rotateX(0) rotateY(0)}50%{transform:perspective(120px) rotateX(-180.1deg) rotateY(0)}100%{transform:perspective(120px) rotateX(-180deg) rotateY(-179.9deg)}}</style>").appendTo("head");
-            var qr = $("<div style='width:100px;height:100px;background-color:#333;animation:rotateplane 1.2s infinite ease-in-out'>");
-            qr.appendTo("body").css({ position: 'absolute', top: $(document).height() / 2 - 50, left: $(document).width() / 2 - 50 });
-            return qr;
+            // css animation
+            $("<style>@keyframes rotateplane{0%{transform:perspective(120px) rotateX(0) rotateY(0)}50%{transform:perspective(120px) rotateX(-180.1deg) rotateY(0)}1ü00%{transform:perspective(120px) rotateX(-180deg) rotateY(-179.9deg)}}</style>")
+                .appendTo("head");
+            return $("<div style='width:100px;height:100px;background-color:#333;animation:rotateplane 1.2s infinite ease-in-out'>")
+                .appendTo("body").css({ position: 'absolute', top: $(document).height() / 2 - 50, left: $(document).width() / 2 - 50 });
         }
         function pc1(server, onConnectionInit, onMessage) {
             var qr = addSpinner();
@@ -145,8 +140,7 @@ var WebRTCPen;
                             qr.removeAttr('style').css({ position: 'absolute', top: $(document).height() / 2 - qrsize / 2, left: $(document).width() / 2 - qrsize / 2 });
                             new QRCode(qr[0], {
                                 text: server + key,
-                                width: qrsize,
-                                height: qrsize
+                                width: qrsize, height: qrsize
                             });
                             return $.get(server + key);
                         }).then(deserializeRTCDesc).then(function (answer) {
@@ -158,9 +152,9 @@ var WebRTCPen;
             }, fail);
         }
         RTC.pc1 = pc1;
+        // this is what the client (android) does for connecting
         function pc2(server, key) {
             RTC.pc = new RTCPeerConnection(cfg, con);
-            // this is what the client (android) does for connecting
             RTC.pc.ondatachannel = function (event) { return RTC.channel = event.channel; };
             $.getJSON(server + key).then(deserializeRTCDesc).then(function (offer) {
                 RTC.pc.setRemoteDescription(offer, succ, fail);
@@ -186,7 +180,7 @@ var PenDrawing;
     var project;
     var tools;
     var stroke_color = "#000000";
-    var pressure_factor = 8;
+    var pressure_factor = 4;
     var min_dist_squared = 4 * 4;
     function initialize(canvas) {
         paper.setup(canvas);

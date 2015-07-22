@@ -15,7 +15,7 @@ module WebRTCPen {
 		unknown, finger, stylus, mouse, eraser
 	}
 	enum Action {
-		Down, Up, Move2,
+		Down, Up, Move,
 		Cancel, Outside,
 		Pointer_Down, Pointer_Up,
 		Hover_Move, Scroll,
