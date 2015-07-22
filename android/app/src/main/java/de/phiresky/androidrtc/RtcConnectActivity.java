@@ -4,8 +4,6 @@ import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.Looper;
-import android.view.Window;
-import android.view.WindowManager.LayoutParams;
 import android.widget.Toast;
 
 import com.google.zxing.integration.android.IntentIntegrator;
@@ -13,7 +11,6 @@ import com.google.zxing.integration.android.IntentResult;
 
 import org.json.JSONException;
 import org.json.JSONObject;
-import org.json.JSONTokener;
 import org.webrtc.DataChannel;
 import org.webrtc.IceCandidate;
 import org.webrtc.MediaConstraints;
@@ -28,7 +25,6 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.LinkedList;
 
@@ -61,7 +57,7 @@ public class RtcConnectActivity extends Activity implements PeerConnection.Obser
     }
 
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        if(requestCode == 123) {
+        if (requestCode == 123) {
             // return from PenSyncActivity
             scanBarcode();
             return;
@@ -109,13 +105,10 @@ public class RtcConnectActivity extends Activity implements PeerConnection.Obser
 
     private void beginWebrtc(String targetUrl) {
         this.targetUrl = targetUrl;
-        get(targetUrl, new Consumer<String>() {
-            @Override
-            public void consume(final String offer) {
-                step = 1;
-                System.out.println("got offer "+offer);
-                pc.setRemoteDescription(test, deserializeRTCDesc(offer));
-            }
+        get(targetUrl, offer -> {
+            step = 1;
+            System.out.println("got offer " + offer);
+            pc.setRemoteDescription(test, deserializeRTCDesc(offer));
         });
     }
 
@@ -171,16 +164,11 @@ public class RtcConnectActivity extends Activity implements PeerConnection.Obser
     public void onIceGatheringChange(PeerConnection.IceGatheringState iceGatheringState) {
         System.out.println(iceGatheringState);
         if (iceGatheringState != PeerConnection.IceGatheringState.COMPLETE) return;
-        if(pc.getLocalDescription() == null) {
+        if (pc.getLocalDescription() == null) {
             System.out.println("NULL!");
             return;
         }
-        post(targetUrl, serializeRTCDesc(pc.getLocalDescription()), new Consumer<String>() {
-            @Override
-            public void consume(String data) {
-                System.out.println("out:" + data);
-            }
-        });
+        post(targetUrl, serializeRTCDesc(pc.getLocalDescription()), data -> System.out.println("out:" + data));
     }
 
     private void get(String urlStr, Consumer<String> callback) {
@@ -192,40 +180,34 @@ public class RtcConnectActivity extends Activity implements PeerConnection.Obser
     }
 
     private void urlRequest(final String urlStr, final String postData, final Consumer<String> callback) {
-        new Thread(new Runnable() {
-            public void run() {
-                System.out.println((postData == null?"GET:":"POST:") + urlStr);
-                URL url = null;
-                try {
-                    url = new URL(urlStr);
-                    HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-                    if (postData != null) {
-                        conn.setRequestMethod("POST");
-                        conn.setDoOutput(true);
-                        DataOutputStream out = new DataOutputStream(conn.getOutputStream());
-                        out.writeBytes(postData);
-                        out.close();
-                    }
-                    String result = "", line;
-                    BufferedReader rd = new BufferedReader(new InputStreamReader(conn.getInputStream()));
-                    while ((line = rd.readLine()) != null) result += line;
-                    rd.close();
-                    callback.consume(result);
-                } catch (IOException e) {
-                    handleError(e);
+        new Thread(() -> {
+            System.out.println((postData == null ? "GET:" : "POST:") + urlStr);
+            URL url = null;
+            try {
+                url = new URL(urlStr);
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                if (postData != null) {
+                    conn.setRequestMethod("POST");
+                    conn.setDoOutput(true);
+                    DataOutputStream out = new DataOutputStream(conn.getOutputStream());
+                    out.writeBytes(postData);
+                    out.close();
                 }
+                String result = "", line;
+                BufferedReader rd = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+                while ((line = rd.readLine()) != null) result += line;
+                rd.close();
+                callback.consume(result);
+            } catch (IOException e) {
+                handleError(e);
             }
         }).start();
     }
 
     void toast(final String text) {
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                Toast.makeText(RtcConnectActivity.this.getApplicationContext(), text, Toast.LENGTH_LONG).show();
-            }
-        });
+        runOnUiThread(() -> Toast.makeText(RtcConnectActivity.this.getApplicationContext(), text, Toast.LENGTH_LONG).show());
     }
+
     void handleError(final Exception e) {
         toast(e.getMessage());
         e.printStackTrace();
@@ -241,10 +223,6 @@ public class RtcConnectActivity extends Activity implements PeerConnection.Obser
 
     @Override
     public void onRemoveStream(MediaStream mediaStream) {
-    }
-
-    private void debugLog() {
-        System.out.println("DBG: " + Thread.currentThread().getStackTrace()[2].getMethodName());
     }
 
     @Override

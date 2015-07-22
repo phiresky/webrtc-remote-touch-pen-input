@@ -15,8 +15,6 @@ import org.webrtc.DataChannel;
 
 import java.nio.ByteBuffer;
 import java.util.AbstractMap;
-import java.util.HashMap;
-import java.util.Locale;
 import java.util.Map;
 
 public class PenSyncActivity extends Activity implements View.OnTouchListener, View.OnHoverListener {
@@ -69,7 +67,7 @@ public class PenSyncActivity extends Activity implements View.OnTouchListener, V
     }
 
     private static <T> Map.Entry<String, T> entry(String x, T ele) {
-        return new AbstractMap.SimpleImmutableEntry<String, T>(x, ele);
+        return new AbstractMap.SimpleImmutableEntry<>(x, ele);
     }
 
     private JSONObject json(Map.Entry<String, ?>... entries) {
@@ -83,7 +81,7 @@ public class PenSyncActivity extends Activity implements View.OnTouchListener, V
             Toast.makeText(getApplicationContext(), e.getMessage(), Toast.LENGTH_LONG).show();
             e.printStackTrace();
         }
-        return null;
+        return new JSONObject();
     }
 
     @Override
