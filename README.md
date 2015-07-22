@@ -6,10 +6,20 @@ Connection is established using a simple QR code.
 
 A hosted version of the web component is at https://phiresky.github.io/webrtc-remote-touch-pen-input
 
-Demo:
+## Demo
 
 [![Youtube Demo](http://share.gifyoutube.com/mLDpOR.gif)](https://www.youtube.com/watch?v=Gvsm84xL9Sk)
 
+[(YouTube)](https://www.youtube.com/watch?v=Gvsm84xL9Sk)
+
+## Source
+
+* `src/webrtcpen.ts`
+  * module `WebRTCPen.RTC`: builds the connection and installs data listeners
+  * module `WebRTCPen` provides mouse emulation and the `info` element which contains position and pressure information
+* `src/drawing.ts` canvas drawing module using paper.js
+
+## How it works
 
 Currently it needs a tiny server for establishing the connection that does the following (see `server.js`):
 

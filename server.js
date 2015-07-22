@@ -9,9 +9,7 @@ let fs = require('fs'),
 let HOST = process.env.OPENSHIFT_NODEJS_IP || "0.0.0.0";
 let PORT = process.env.OPENSHIFT_NODEJS_PORT || 3001;
 
-
-
-let sessions = {}; // body:string, req: PC request
+let sessions = {}; // key -> {body:string, req: PC WebRTC request string}
 let sessionQueue = [];
 
 let abort = res => { res.statusCode = 404; res.end("not found"); }

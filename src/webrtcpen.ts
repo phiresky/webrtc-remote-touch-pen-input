@@ -15,24 +15,18 @@ module WebRTCPen {
 		unknown, finger, stylus, mouse, eraser
 	}
 	enum Action {
-		Down = 0,
-		Up = 1,
-		Move = 2,
-		Cancel = 3,
-		Outside = 4,
-		Pointer_Down = 5,
-		Pointer_Up = 6,
-		Hover_Move = 7,
-		Scroll = 8,
-		Hover_Enter = 9,
-		Hover_Exit = 10,
+		Down, Up, Move2,
+		Cancel, Outside,
+		Pointer_Down, Pointer_Up,
+		Hover_Move, Scroll,
+		Hover_Enter, Hover_Exit
 	}
 	interface PenInformation {
 		x: number, y: number, action: Action, event: string, pressure: number, tooltype: ToolType
 	}
 	interface Configuration {
 		server: string; // the nodejs server that handles the sessions
-		emulateMouse?: boolean;
+		emulateMouse?: boolean; // send mouse events to the DOM
 	}
 	let moveDiv = $("<div>").css({ position: 'absolute', borderRadius: '100%', display: 'none', zIndex: 99 });
 	function onConnectionInit() {
@@ -44,8 +38,7 @@ module WebRTCPen {
 		if (config.emulateMouse) emulateMouse(info);
 		let color = info.tooltype == ToolType.finger ? 'red' : 'green';
 		let size = info.pressure * penSize;
-		if (info.event == 'touch') {
-		} else {
+		if (info.event != 'touch') {
 			color = 'black';
 			size = penSize / 2;
 		}
@@ -57,10 +50,9 @@ module WebRTCPen {
 	}
 	export function initialize(_config: Configuration) {
 		config = _config;
-		if(config.server[config.server.length-1] != '/') config.server += '/';
-		$(() => // wait for document ready
-			RTC.pc1(config.server, onConnectionInit.bind(WebRTCPen), onMessage.bind(WebRTCPen))
-			);
+		if (config.server[config.server.length - 1] != '/') config.server += '/';
+		// wait for document ready
+		$(() => RTC.pc1(config.server, onConnectionInit.bind(WebRTCPen), onMessage.bind(WebRTCPen)));
 	}
 	let lastEle: Node = null;
 	function emulateMouse(info: PenInformation) {
@@ -68,10 +60,8 @@ module WebRTCPen {
 		if (type) {
 			let ele = (document.elementFromPoint(info.x, info.y) || document);
 			let evt = {
-				screenX: window.screenX + info.x,
-				screenY: window.screenY + info.y,
-				clientX: info.x,
-				clientY: info.y,
+				screenX: window.screenX + info.x, screenY: window.screenY + info.y,
+				clientX: info.x, clientY: info.y,
 				bubbles: true,
 				cancelable: true,
 				view: window
@@ -84,9 +74,8 @@ module WebRTCPen {
 	}
 }
 module WebRTCPen.RTC {
-	export let pc: RTCPeerConnection;
-	export let channel: RTCDataChannel;
-	declare var QRCode: any;
+	export let pc: RTCPeerConnection, channel: RTCDataChannel;
+	declare var QRCode: any; // qr drawing lib
 	let cfg = { iceServers: [{ url: "stun:23.21.150.121" }, { url: "stun:stun.l.google.com:19302" }] };
 	let con = { optional: [{ DtlsSrtpKeyAgreement: true }] };
 	let qrsize = 300;
@@ -106,14 +95,15 @@ module WebRTCPen.RTC {
 		return new RTCSessionDescription(desc);
 	}
 	function whenIceDone(callback: () => void) {
-		// todo: this a hack?
+		// todo: is this a hack?
 		pc.onicecandidate = ev => { if (ev.candidate == null) callback(); }
 	}
 	function addSpinner() {
-		$("<style>@keyframes rotateplane{0%{transform:perspective(120px) rotateX(0) rotateY(0)}50%{transform:perspective(120px) rotateX(-180.1deg) rotateY(0)}100%{transform:perspective(120px) rotateX(-180deg) rotateY(-179.9deg)}}</style>").appendTo("head");
-		let qr = $("<div style='width:100px;height:100px;background-color:#333;animation:rotateplane 1.2s infinite ease-in-out'>");
-		qr.appendTo("body").css({ position: 'absolute', top: $(document).height() / 2 - 50, left: $(document).width() / 2 - 50 });
-		return qr;
+		// css animation
+		$("<style>@keyframes rotateplane{0%{transform:perspective(120px) rotateX(0) rotateY(0)}50%{transform:perspective(120px) rotateX(-180.1deg) rotateY(0)}1ü00%{transform:perspective(120px) rotateX(-180deg) rotateY(-179.9deg)}}</style>")
+			.appendTo("head");
+		return $("<div style='width:100px;height:100px;background-color:#333;animation:rotateplane 1.2s infinite ease-in-out'>")
+			.appendTo("body").css({ position: 'absolute', top: $(document).height() / 2 - 50, left: $(document).width() / 2 - 50 });
 	}
 
 	export function pc1(server: string, onConnectionInit: () => void, onMessage: (s: string) => void) {
@@ -134,8 +124,7 @@ module WebRTCPen.RTC {
 						qr.removeAttr('style').css({ position: 'absolute', top: $(document).height() / 2 - qrsize / 2, left: $(document).width() / 2 - qrsize / 2 });
 						new QRCode(qr[0], {
 							text: server + key,
-							width: qrsize,
-							height: qrsize
+							width: qrsize, height: qrsize
 						});
 						return $.get(server + key);
 					}).then(deserializeRTCDesc).then(answer => {
@@ -144,13 +133,12 @@ module WebRTCPen.RTC {
 					}).fail(fail);
 				});
 			}, fail);
-
 		}, fail);
 	}
-
+	
+	// this is what the client (android) does for connecting
 	export function pc2(server: string, key: string) {
 		pc = new RTCPeerConnection(cfg, con);
-		// this is what the client (android) does for connecting
 		pc.ondatachannel = (event: RTCDataChannelEvent) => channel = event.channel;
 		$.getJSON(server + key).then(deserializeRTCDesc).then(offer => {
 			pc.setRemoteDescription(offer, succ, fail);
